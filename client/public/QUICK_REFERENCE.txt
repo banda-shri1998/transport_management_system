@@ -1,0 +1,145 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                    TRANSPORT RECORDS IMPORT - QUICK REFERENCE                  ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+┌─ COLUMN ORDER & REQUIREMENTS ─────────────────────────────────────────────────┐
+│                                                                               │
+│  #  Column Name              Type     Required  Format/Example                │
+│  ─  ──────────────────────── ───────  ────────  ────────────────────────────  │
+│  1  date                     Date     ✓         2026-01-15                   │
+│  2  transportName            Text     ✓         Mahadev Kharade              │
+│  3  freightMemoNo            Text     ✓         1001                         │
+│  4  lrNo                     Text     ○         LR001 or LR001|LR002          │
+│  5  vehicleNo                Text     ✓         MH12FC7196                   │
+│  6  partyName                Text     ✓         ABC Logistics                │
+│  7  company                  Text     ○         ABC Corp                      │
+│  8  location                 Text     ○         Mumbai                        │
+│  9  quantity                 Number   ✓         100                          │
+│  10 rate                     Number   ✓         500                          │
+│  11 totalAmount              Number   ✓         50000                        │
+│  12 advancePaid              Number   ○         5000                          │
+│  13 fuelType                 Text     ○         Diesel or CNG                 │
+│  14 fuelRate                 Number   ○         98.4                          │
+│  15 fuelQuantity             Number   ○         50                            │
+│  16 fuelExpense              Number   ○         4920                          │
+│  17 previousClosingBalance   Number   ○         0                             │
+│  18 paymentDate              Date     ○         2026-01-20                    │
+│  19 payAmount                Number   ○         2000                          │
+│  20 balance                  Number   ✓         40080                         │
+│                                                                               │
+│  Legend: ✓ = Required | ○ = Optional                                          │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ CRITICAL RULES ──────────────────────────────────────────────────────────────┐
+│                                                                               │
+│  1. Dates must be YYYY-MM-DD (2026-01-15, NOT 15-01-2026)                     │
+│  2. No currency symbols (500, NOT ₹500)                                       │
+│  3. Multiple LRs use pipe: LR001|LR002 (NOT LR001,LR002)                      │
+│  4. Column order must match EXACTLY                                           │
+│  5. All required columns must be present                                      │
+│  6. No extra/deleted columns                                                  │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AUTOMATIC CALCULATIONS ──────────────────────────────────────────────────────┐
+│                                                                               │
+│  totalAmount = quantity × rate                                                │
+│  fuelExpense = fuelQuantity × fuelRate                                        │
+│  balance = totalAmount - advancePaid - fuelExpense - payAmount                │
+│                                                                               │
+│  You can provide these OR let system calculate (system will use its value)    │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ FUEL TYPES & DEFAULT RATES ──────────────────────────────────────────────────┐
+│                                                                               │
+│  Fuel Type          Default Rate       When to Use                            │
+│  ────────────────── ──────────────── ────────────────────────────────────     │
+│  Diesel             ₹98.4/liter       Standard fuel (default)                 │
+│  CNG                ₹99/liter         Compressed natural gas                  │
+│                                                                               │
+│  If you leave fuelRate blank, system auto-fills based on fuelType             │
+│  If you provide fuelRate, that value is used                                  │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ EXAMPLE: COMPLETE RECORD ────────────────────────────────────────────────────┐
+│                                                                               │
+│  date: 2026-01-15                                                             │
+│  transportName: Mahadev Kharade                                               │
+│  freightMemoNo: 1001                                                          │
+│  lrNo: LR001                                                                  │
+│  vehicleNo: MH12FC7196                                                        │
+│  partyName: ABC Logistics                                                     │
+│  company: ABC Corp                                                            │
+│  location: Mumbai                                                             │
+│  quantity: 100                                                                │
+│  rate: 500                                                                    │
+│  totalAmount: 50000 (auto: 100 × 500)                                         │
+│  advancePaid: 5000                                                            │
+│  fuelType: Diesel                                                             │
+│  fuelRate: 98.4 (auto-filled)                                                 │
+│  fuelQuantity: 50                                                             │
+│  fuelExpense: 4920 (auto: 50 × 98.4)                                          │
+│  previousClosingBalance: 0                                                    │
+│  paymentDate: (empty)                                                         │
+│  payAmount: 0                                                                 │
+│  balance: 45080 (50000 - 5000 - 4920 - 0)                                     │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ COMMON ERRORS & FIXES ───────────────────────────────────────────────────────┐
+│                                                                               │
+│  ERROR: "Missing required columns"                                            │
+│  FIX: Check all 20 columns are present with exact names                       │
+│                                                                               │
+│  ERROR: "Invalid date format"                                                 │
+│  FIX: Use YYYY-MM-DD (2026-01-15, NOT 15/1/2026 or 01-15-2026)                │
+│                                                                               │
+│  ERROR: "Balance calculation mismatch"                                        │
+│  FIX: System recalculates balance; ensure inputs are correct                  │
+│                                                                               │
+│  ERROR: "Import failed - empty file"                                          │
+│  FIX: CSV must have headers + at least 1 data row                             │
+│                                                                               │
+│  ERROR: "Duplicate freight memo"                                              │
+│  FIX: freightMemoNo must be unique; change value                              │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ IMPORT CHECKLIST ────────────────────────────────────────────────────────────┐
+│                                                                               │
+│  □ Downloaded template.csv from app                                           │
+│  □ Opened in Excel/Spreadsheet                                                │
+│  □ Kept header row (first row)                                                │
+│  □ Replaced sample data with real records                                     │
+│  □ Verified all required columns are filled                                   │
+│  □ Dates are in YYYY-MM-DD format                                             │
+│  □ No currency symbols in numbers                                             │
+│  □ Multiple LRs use pipe separator (|)                                        │
+│  □ Saved as CSV file                                                          │
+│  □ File is UTF-8 encoded (standard for Excel)                                 │
+│  □ Tested with 2-3 records first                                              │
+│  □ Ready to import!                                                           │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ IMPORT STEPS ────────────────────────────────────────────────────────────────┐
+│                                                                               │
+│  1. Go to AllRecords page                                                     │
+│  2. Click "📋 Download Template" button                                      |
+│  3. Open CSV in Excel                                                         │
+│  4. Add your data (keep headers)                                              │
+│  5. Save as CSV                                                               │
+│  6. Click "Import Records" button                                             │
+│  7. Select your CSV file                                                      │
+│  8. Review success message                                                    │
+│  9. Verify data imported correctly                                            │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════════╗
+║ For detailed documentation: See IMPORT_TEMPLATE_GUIDE.md                       ║
+║ For troubleshooting: See TEMPLATE_README.txt                                   ║
+╚════════════════════════════════════════════════════════════════════════════════╝
