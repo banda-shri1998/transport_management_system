@@ -117,7 +117,7 @@ export default function Dashboard() {
       const date = new Date(record.date);
       if (Number.isNaN(date.getTime())) return;
 
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const key = `${String(date.getMonth() + 1).padStart(2, "0")}`;
       const label = date.toLocaleDateString("en-IN", {
         month: "short",
         year: "2-digit",

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Navbar from "../components/Navbar";
 import PageContainer from "../components/PageContainer";
+import useAuth from "../hooks/useAuth";
 
 const EXPORT_COLUMNS = [
   "date",
@@ -114,6 +115,11 @@ export default function AllRecords() {
   const [importing, setImporting] = useState(false);
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const { user } = useAuth();
+  const isAdmin =
+    (user?.role || localStorage.getItem("role") || "")
+      .toString()
+      .toLowerCase() === "admin";
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -280,10 +286,15 @@ export default function AllRecords() {
         };
       });
 
-      const response = await api.post("/transports/import", { records: recordsToImport });
+      const response = await api.post("/transports/import", {
+        records: recordsToImport,
+      });
       await fetchRecords();
       setImportSummary(response.data);
-      setMessage(response.data?.message || `${recordsToImport.length} records imported successfully`);
+      setMessage(
+        response.data?.message ||
+          `${recordsToImport.length} records imported successfully`,
+      );
     } catch (importError) {
       setError(
         importError.response?.data?.message ||
@@ -397,7 +408,9 @@ export default function AllRecords() {
             {importSummary?.duplicates?.length > 0 && (
               <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/80 dark:bg-amber-950/40 dark:text-amber-200">
                 <p className="font-semibold">
-                  Uploaded {importSummary.total ?? "all"} rows. Imported {importSummary.count ?? 0}. Skipped {importSummary.skipped ?? importSummary.duplicates.length}.
+                  Uploaded {importSummary.total ?? "all"} rows. Imported{" "}
+                  {importSummary.count ?? 0}. Skipped{" "}
+                  {importSummary.skipped ?? importSummary.duplicates.length}.
                 </p>
                 <div className="mt-3 max-h-56 overflow-auto rounded-xl border border-amber-200/80 bg-white/70 dark:border-amber-900/70 dark:bg-slate-950/40">
                   <table className="w-full min-w-[520px] text-left text-xs">
@@ -410,9 +423,14 @@ export default function AllRecords() {
                     </thead>
                     <tbody>
                       {importSummary.duplicates.map((duplicate, index) => (
-                        <tr key={`${duplicate.row}-${duplicate.freightMemoNo}-${index}`} className="border-t border-amber-200/70 dark:border-amber-900/60">
+                        <tr
+                          key={`${duplicate.row}-${duplicate.freightMemoNo}-${index}`}
+                          className="border-t border-amber-200/70 dark:border-amber-900/60"
+                        >
                           <td className="px-3 py-2">{duplicate.row}</td>
-                          <td className="px-3 py-2">{duplicate.freightMemoNo || "-"}</td>
+                          <td className="px-3 py-2">
+                            {duplicate.freightMemoNo || "-"}
+                          </td>
                           <td className="px-3 py-2">{duplicate.reason}</td>
                         </tr>
                       ))}
@@ -504,7 +522,9 @@ export default function AllRecords() {
                       </td>
                       <td
                         className={`px-4 py-3 text-right font-semibold ${
-                          (r.previousClosingBalance || 0) > 0 ? "text-orange-500" : "text-emerald-600"
+                          (r.previousClosingBalance || 0) > 0
+                            ? "text-orange-500"
+                            : "text-emerald-600"
                         }`}
                       >
                         Rs. {formatCurrency(r.previousClosingBalance || 0)}
@@ -517,12 +537,16 @@ export default function AllRecords() {
                         Rs. {formatCurrency(r.balance)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => navigate(`/edit/${r._id}`)}
-                          className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-300"
-                        >
-                          Edit
-                        </button>
+                        {isAdmin ? (
+                          <button
+                            onClick={() => navigate(`/edit/${r._id}`)}
+                            className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-300"
+                          >
+                            Edit
+                          </button>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

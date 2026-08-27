@@ -28,7 +28,7 @@ const MoonIcon = () => (
 );
 
 export default function Navbar() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [dark, setDark] = useState(
     () => localStorage.getItem("theme") === "dark",
@@ -90,6 +90,11 @@ export default function Navbar() {
           <NavLink to="/party-statement" className={linkClass}>
             Party Statement
           </NavLink>
+          {user?.role && String(user.role).toLowerCase() === "admin" && (
+            <NavLink to="/vehicles" className={linkClass}>
+              Vehicles
+            </NavLink>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
@@ -131,6 +136,11 @@ export default function Navbar() {
           <NavLink to="/party-statement" className={linkClass}>
             Party Statement
           </NavLink>
+          {user?.role && String(user.role).toLowerCase() === "admin" && (
+            <NavLink to="/vehicles" className={linkClass}>
+              Vehicles
+            </NavLink>
+          )}
         </div>
       </div>
     </header>

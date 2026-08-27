@@ -125,10 +125,10 @@ export default function Reports() {
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [transportName, setTransportName] = useState("");
-  const [partyName, setPartyName] = useState("");
-  const [company, setCompany] = useState("");
-  const [location, setLocation] = useState("");
+  const [transportName, setTransportName] = useState([]);
+  const [partyName, setPartyName] = useState([]);
+  const [company, setCompany] = useState([]);
+  const [location, setLocation] = useState([]);
   const [amountMin, setAmountMin] = useState("");
   const [amountMax, setAmountMax] = useState("");
   const [balanceStatus, setBalanceStatus] = useState("");
@@ -162,24 +162,44 @@ export default function Reports() {
 
   const fetchRecords = async (pageNum = 1) => {
     try {
-      const res = await api.get("/transports/search", {
-        params: {
-          dateFrom,
-          amountMax,
-          amountMin,
-          balanceStatus,
-          dateTo,
-          partyName,
-          search,
-          transportName,
-          company,
-          location,
-          page: pageNum,
-          limit,
-          sortBy,
-          sortOrder,
-        },
-      });
+      const params = {
+        dateFrom: dateFrom || undefined,
+        amountMax: amountMax || undefined,
+        amountMin: amountMin || undefined,
+        balanceStatus: balanceStatus || undefined,
+        dateTo: dateTo || undefined,
+        search: search || undefined,
+        page: pageNum,
+        limit,
+        sortBy,
+        sortOrder,
+      };
+
+      if (
+        Array.isArray(partyName) ? partyName.length > 0 : Boolean(partyName)
+      ) {
+        params.partyName = Array.isArray(partyName) ? partyName : [partyName];
+      }
+
+      if (
+        Array.isArray(transportName)
+          ? transportName.length > 0
+          : Boolean(transportName)
+      ) {
+        params.transportName = Array.isArray(transportName)
+          ? transportName
+          : [transportName];
+      }
+
+      if (Array.isArray(company) ? company.length > 0 : Boolean(company)) {
+        params.company = Array.isArray(company) ? company : [company];
+      }
+
+      if (Array.isArray(location) ? location.length > 0 : Boolean(location)) {
+        params.location = Array.isArray(location) ? location : [location];
+      }
+
+      const res = await api.get("/transports/search", { params });
       setRecords(res.data.records);
       setTotalPages(res.data.pagination.totalPages);
       setDbTotalRecords(res.data.pagination.totalRecords);
@@ -643,7 +663,9 @@ export default function Reports() {
             </div>
             <div className="ml-4 flex items-end gap-2">
               <label className="flex flex-col text-sm">
-                <span className="mb-1 text-xs font-medium text-slate-500">Clear payment date</span>
+                <span className="mb-1 text-xs font-medium text-slate-500">
+                  Clear payment date
+                </span>
                 <input
                   type="date"
                   value={clearPaymentDate}

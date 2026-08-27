@@ -57,3 +57,25 @@ export const login = async (req, res) => {
     res.status(500).json({ message: error.message || "Login failed" });
   }
 };
+
+export const me = async (req, res) => {
+  try {
+    // protect middleware should have already populated req.user
+    const tokenUser = req.user || {};
+    // tokenUser may be payload { id, role } or full user object depending on how token was issued
+    const userId = tokenUser.id || tokenUser._id || tokenUser.userId || tokenUser.payload?.id;
+
+    if (!userId) {
+      // If no id in token, return the token payload so client at least knows role if present
+      const role = tokenUser.role || tokenUser.payload?.role || null;
+      return res.json({ id: null, role });
+    }
+
+    const user = await User.findById(userId).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    return res.json(user);
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to fetch profile" });
+  }
+};

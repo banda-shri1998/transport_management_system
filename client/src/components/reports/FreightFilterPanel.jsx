@@ -10,26 +10,85 @@ import {
 import api from "../../services/api";
 
 function FilterSelect({ label, value, onChange, options }) {
+  // Searchable checkbox dropdown
+  const selected = Array.isArray(value) ? value : value ? [value] : [];
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filtered = options.filter((o) =>
+    o.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  const toggleValue = (val) => {
+    if (selected.includes(val)) {
+      onChange(selected.filter((s) => s !== val));
+    } else {
+      onChange([...selected, val]);
+    }
+  };
+
+  const clearAll = () => onChange([]);
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 relative">
       <label className="text-xs font-medium text-slate-500">{label}</label>
       <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full appearance-none rounded-md border border-slate-200 glass-panel py-2 pl-3 pr-8 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+        <button
+          type="button"
+          onClick={() => setOpen((s) => !s)}
+          className="w-full text-left rounded-md border border-slate-200 glass-panel py-2 pl-3 pr-8 text-sm text-white flex items-center justify-between"
         >
-          <option value="">All</option>
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          size={14}
-          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-        />
+          <div className="truncate">
+            {selected.length === 0 ? (
+              <span className="text-slate-400">All</span>
+            ) : (
+              selected.join(", ")
+            )}
+          </div>
+          <ChevronDown
+            size={14}
+            className={`ml-2 ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {open && (
+          <div className="absolute left-0 top-full z-20 mt-2 w-full rounded-md border bg-white p-3 shadow-lg dark:bg-slate-900">
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                className="w-full rounded-md border px-2 py-1 text-sm"
+                placeholder={`Search ${label}`}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <button onClick={clearAll} className="text-xs text-slate-500">
+                Clear
+              </button>
+            </div>
+            <div className="max-h-40 overflow-auto">
+              {filtered.map((o) => (
+                <label key={o} className="flex items-center gap-2 py-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(o)}
+                    onChange={() => toggleValue(o)}
+                  />
+                  <span className="truncate">{o}</span>
+                </label>
+              ))}
+              {filtered.length === 0 && (
+                <div className="text-sm text-slate-400">No matches</div>
+              )}
+            </div>
+            <div className="mt-2 text-right">
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-md bg-blue-600 px-3 py-1 text-white text-sm"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -161,13 +220,26 @@ export default function FreightFilterPanel({
     search && { label: `"${search}"`, clear: () => setSearch("") },
     dateFrom && { label: `From ${dateFrom}`, clear: () => setDateFrom("") },
     dateTo && { label: `To ${dateTo}`, clear: () => setDateTo("") },
-    transportName && {
-      label: transportName,
-      clear: () => setTransportName(""),
-    },
-    partyName && { label: partyName, clear: () => setPartyName("") },
-    company && { label: `Company: ${company}`, clear: () => setCompany("") },
-    location && { label: location, clear: () => setLocation("") },
+    Array.isArray(transportName) &&
+      transportName.length > 0 && {
+        label: transportName.join(", "),
+        clear: () => setTransportName([]),
+      },
+    Array.isArray(partyName) &&
+      partyName.length > 0 && {
+        label: partyName.join(", "),
+        clear: () => setPartyName([]),
+      },
+    Array.isArray(company) &&
+      company.length > 0 && {
+        label: `Company: ${company.join(", ")}`,
+        clear: () => setCompany([]),
+      },
+    Array.isArray(location) &&
+      location.length > 0 && {
+        label: location.join(", "),
+        clear: () => setLocation([]),
+      },
     amountMin && { label: `Amt ≥ ${amountMin}`, clear: () => setAmountMin("") },
     amountMax && { label: `Amt ≤ ${amountMax}`, clear: () => setAmountMax("") },
     balanceStatus && {
@@ -180,10 +252,10 @@ export default function FreightFilterPanel({
     setSearch("");
     setDateFrom("");
     setDateTo("");
-    setTransportName("");
-    setPartyName("");
-    setCompany("");
-    setLocation("");
+    setTransportName([]);
+    setPartyName([]);
+    setCompany([]);
+    setLocation([]);
     setAmountMin("");
     setAmountMax("");
     setBalanceStatus("");

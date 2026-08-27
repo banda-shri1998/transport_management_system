@@ -9,25 +9,29 @@ import {
   markRecordsPaid,
   searchTransports,
   getFilterOptions,
+  getVehicleOptions,
 } from "../controllers/transportController.js";
-import { protect } from "../middlewares/authmiddleware.js";
+import { protect, isAdmin } from "../middlewares/authmiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
 router.get("/filter-options", getFilterOptions);
+router.get("/vehicle-options", getVehicleOptions);
 router.get("/search", searchTransports);
-router.post("/import", importTransports);
+// Import records - admin only
+router.post("/import", isAdmin, importTransports);
 
-router.put("/mark-paid", markRecordsPaid);
+// Mark paid - admin only
+router.put("/mark-paid", isAdmin, markRecordsPaid);
 
 router.get("/", getTransports);
 
+// Create, update, delete - admin only
+// Allow staff to create records but keep admin-only protections for update/delete/import/mark-paid
 router.post("/", createTransport);
-
 router.get("/:id", getTransportById);
+router.put("/:id", isAdmin, updateTransport);
+router.delete("/:id", isAdmin, deleteTransport);
 
-router.put("/:id", updateTransport);
-
-router.delete("/:id", deleteTransport);
 export default router;

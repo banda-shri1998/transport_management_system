@@ -1,4 +1,5 @@
 import Transport from "../models/Transport.js";
+import Vehicle from "../models/Vehicle.js";
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -13,16 +14,20 @@ const isNullOrEmptyVal = (val) => {
 
 const parseDate = (val) => {
   if (val === null || val === undefined) return undefined;
-  
+
   if (val instanceof Date) {
     return isNaN(val.getTime()) ? undefined : val;
   }
-  
+
   const str = String(val).trim();
-  if (str.toLowerCase() === "null" || str.toLowerCase() === "undefined" || str === "") {
+  if (
+    str.toLowerCase() === "null" ||
+    str.toLowerCase() === "undefined" ||
+    str === ""
+  ) {
     return undefined;
   }
-  
+
   // Try matching DD-MM-YYYY or DD/MM/YYYY
   const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (dmyMatch) {
@@ -30,11 +35,15 @@ const parseDate = (val) => {
     const month = parseInt(dmyMatch[2], 10) - 1; // 0-indexed month
     const year = parseInt(dmyMatch[3], 10);
     const date = new Date(year, month, day);
-    if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
+    if (
+      date.getFullYear() === year &&
+      date.getMonth() === month &&
+      date.getDate() === day
+    ) {
       return date;
     }
   }
-  
+
   const parsed = new Date(str);
   return isNaN(parsed.getTime()) ? undefined : parsed;
 };
@@ -63,7 +72,8 @@ const normalizeFreightMemoNo = (value) => {
   return parsed;
 };
 
-const getDuplicateKey = (record) => normalizeFreightMemoNo(record.freightMemoNo);
+const getDuplicateKey = (record) =>
+  normalizeFreightMemoNo(record.freightMemoNo);
 
 const formatDuplicateRecord = (record, index, reason) => ({
   row: index + 2,
@@ -117,40 +127,74 @@ export const searchTransports = async (req, res) => {
       };
     }
 
-    // Handle transportName
-    if (transportName) {
-      query.transportName = {
-        $regex: transportName,
-        $options: "i",
-      };
+    const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // Helper to normalize multi-valued filter param (accepts arrays, comma-separated strings, or single value)
+    const normalizeFilterParts = (val) => {
+      if (!val && val !== 0) return [];
+      if (Array.isArray(val))
+        return val.map((p) => String(p).trim()).filter(Boolean);
+      const str = String(val);
+      return str
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean);
+    };
+
+    // Handle transportName (supports array or comma-separated multi-values)
+    const transportParts = normalizeFilterParts(transportName);
+    if (transportParts.length === 1) {
+      query.transportName = { $regex: transportParts[0], $options: "i" };
+    } else if (transportParts.length > 1) {
+      const ors = transportParts.map((v) => ({
+        transportName: { $regex: `^${escapeRegex(v)}$`, $options: "i" },
+      }));
+      query.$and = query.$and || [];
+      query.$and.push({ $or: ors });
     }
 
-    // Handle partyName
-    if (partyName) {
-      query.partyName = {
-        $regex: partyName,
-        $options: "i",
-      };
+    // Handle partyName (multi-value)
+    const partyParts = normalizeFilterParts(partyName);
+    if (partyParts.length === 1) {
+      query.partyName = { $regex: partyParts[0], $options: "i" };
+    } else if (partyParts.length > 1) {
+      const ors = partyParts.map((v) => ({
+        partyName: { $regex: `^${escapeRegex(v)}$`, $options: "i" },
+      }));
+      query.$and = query.$and || [];
+      query.$and.push({ $or: ors });
     }
 
-    // Handle company
-    if (company) {
-      query.company = {
-        $regex: company,
-        $options: "i",
-      };
+    // Handle company (multi-value)
+    const companyParts = normalizeFilterParts(company);
+    if (companyParts.length === 1) {
+      query.company = { $regex: companyParts[0], $options: "i" };
+    } else if (companyParts.length > 1) {
+      const ors = companyParts.map((v) => ({
+        company: { $regex: `^${escapeRegex(v)}$`, $options: "i" },
+      }));
+      query.$and = query.$and || [];
+      query.$and.push({ $or: ors });
     }
 
-    // Handle location
-    if (location) {
-      query.location = {
-        $regex: location,
-        $options: "i",
-      };
+    // Handle location (multi-value)
+    const locationParts = normalizeFilterParts(location);
+    if (locationParts.length === 1) {
+      query.location = { $regex: locationParts[0], $options: "i" };
+    } else if (locationParts.length > 1) {
+      const ors = locationParts.map((v) => ({
+        location: { $regex: `^${escapeRegex(v)}$`, $options: "i" },
+      }));
+      query.$and = query.$and || [];
+      query.$and.push({ $or: ors });
     }
 
     // Handle freightMemoNo (legacy parameter)
-    if (freightMemoNo !== undefined && freightMemoNo !== null && freightMemoNo !== "") {
+    if (
+      freightMemoNo !== undefined &&
+      freightMemoNo !== null &&
+      freightMemoNo !== ""
+    ) {
       const memoNo = normalizeFreightMemoNo(freightMemoNo);
       if (memoNo !== undefined) {
         query.freightMemoNo = memoNo;
@@ -238,9 +282,15 @@ const normalizeTransportPayload = (payload, options = {}) => {
   const lrNo = normalizeLrNo(payload.lrNo);
   const vehicleNo = cleanVal(payload.vehicleNo);
   const partyName = cleanVal(payload.partyName);
-  const company = isNullOrEmptyVal(payload.company) ? "" : String(payload.company).trim();
-  const location = isNullOrEmptyVal(payload.location) ? "" : String(payload.location).trim();
-  const fuelType = isNullOrEmptyVal(payload.fuelType) ? "Diesel" : String(payload.fuelType).trim();
+  const company = isNullOrEmptyVal(payload.company)
+    ? ""
+    : String(payload.company).trim();
+  const location = isNullOrEmptyVal(payload.location)
+    ? ""
+    : String(payload.location).trim();
+  const fuelType = isNullOrEmptyVal(payload.fuelType)
+    ? "Diesel"
+    : String(payload.fuelType).trim();
 
   // Numeric fields
   const quantity = toNumber(payload.quantity);
@@ -248,16 +298,14 @@ const normalizeTransportPayload = (payload, options = {}) => {
   const advancePaid = toNumber(payload.advancePaid);
   const fuelRate = toNumber(payload.fuelRate, 0);
   const fuelQuantity = toNumber(payload.fuelQuantity);
-  
-  const fuelExpense =
-    !isNullOrEmptyVal(payload.fuelExpense)
-      ? toNumber(payload.fuelExpense)
-      : fuelRate * fuelQuantity;
 
-  const totalAmount =
-    !isNullOrEmptyVal(payload.totalAmount)
-      ? toNumber(payload.totalAmount)
-      : quantity * rate;
+  const fuelExpense = !isNullOrEmptyVal(payload.fuelExpense)
+    ? toNumber(payload.fuelExpense)
+    : fuelRate * fuelQuantity;
+
+  const totalAmount = !isNullOrEmptyVal(payload.totalAmount)
+    ? toNumber(payload.totalAmount)
+    : quantity * rate;
 
   const payAmount =
     options.allowPaymentFields && !isNullOrEmptyVal(payload.payAmount)
@@ -297,11 +345,15 @@ const normalizeTransportPayload = (payload, options = {}) => {
 
 export const createTransport = async (req, res) => {
   try {
-    const normalized = normalizeTransportPayload(req.body, { allowPaymentFields: false });
+    const normalized = normalizeTransportPayload(req.body, {
+      allowPaymentFields: false,
+    });
     const duplicateKey = getDuplicateKey(normalized);
 
     if (duplicateKey !== undefined) {
-      const existingMemo = await Transport.findOne({ freightMemoNo: duplicateKey }).lean();
+      const existingMemo = await Transport.findOne({
+        freightMemoNo: duplicateKey,
+      }).lean();
 
       if (existingMemo) {
         return res.status(409).json({
@@ -334,19 +386,25 @@ export const importTransports = async (req, res) => {
     const validEntries = [];
 
     req.body.records.forEach((record, index) => {
-      const normalized = normalizeTransportPayload(record, { allowPaymentFields: true });
-      
+      const normalized = normalizeTransportPayload(record, {
+        allowPaymentFields: true,
+      });
+
       const missingFields = [];
       if (!normalized.date) missingFields.push("Date");
       if (!normalized.transportName) missingFields.push("Transport Name");
-      if (normalized.freightMemoNo === undefined) missingFields.push("Freight Memo No");
+      if (normalized.freightMemoNo === undefined)
+        missingFields.push("Freight Memo No");
       if (!normalized.vehicleNo) missingFields.push("Vehicle No");
       if (!normalized.partyName) missingFields.push("Party Name");
 
       if (missingFields.length > 0) {
         invalidRecords.push({
           row: index + 2,
-          freightMemoNo: normalized.freightMemoNo !== undefined ? normalized.freightMemoNo : "N/A",
+          freightMemoNo:
+            normalized.freightMemoNo !== undefined
+              ? normalized.freightMemoNo
+              : "N/A",
           reason: `Missing required field(s): ${missingFields.join(", ")}`,
         });
       } else {
@@ -380,10 +438,15 @@ export const importTransports = async (req, res) => {
     const keys = [...seenKeys];
     const existingRecords =
       keys.length > 0
-        ? await Transport.find({ freightMemoNo: { $in: keys } }, { freightMemoNo: 1 }).lean()
+        ? await Transport.find(
+            { freightMemoNo: { $in: keys } },
+            { freightMemoNo: 1 },
+          ).lean()
         : [];
     const existingKeys = new Set(
-      existingRecords.map((record) => normalizeFreightMemoNo(record.freightMemoNo)),
+      existingRecords.map((record) =>
+        normalizeFreightMemoNo(record.freightMemoNo),
+      ),
     );
     const dbDuplicates = [];
     const recordsToCreate = uniqueEntries.flatMap(({ record, index }) => {
@@ -403,8 +466,12 @@ export const importTransports = async (req, res) => {
       recordsToCreate.length > 0
         ? await Transport.insertMany(recordsToCreate, { ordered: false })
         : [];
-        
-    const skippedRecords = [...invalidRecords, ...fileDuplicates, ...dbDuplicates];
+
+    const skippedRecords = [
+      ...invalidRecords,
+      ...fileDuplicates,
+      ...dbDuplicates,
+    ];
 
     return res.status(201).json({
       message:
@@ -427,11 +494,17 @@ export const getTransports = async (_, res) =>
 export const updateTransport = async (req, res) => {
   try {
     const existingRecord = await Transport.findById(req.params.id);
-    
-    const normalized = normalizeTransportPayload(req.body, { allowPaymentFields: true });
+
+    const normalized = normalizeTransportPayload(req.body, {
+      allowPaymentFields: true,
+    });
 
     // If payment was made and balance is changing, preserve the previous balance
-    if (existingRecord && existingRecord.balance !== normalized.balance && normalized.balance !== existingRecord.balance) {
+    if (
+      existingRecord &&
+      existingRecord.balance !== normalized.balance &&
+      normalized.balance !== existingRecord.balance
+    ) {
       if (!req.body.previousClosingBalance) {
         normalized.previousClosingBalance = existingRecord.balance;
       }
@@ -487,6 +560,50 @@ export const getFilterOptions = async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+// Return distinct vehicles with their most recently recorded fuelType.
+export const getVehicleOptions = async (req, res) => {
+  try {
+    // Prefer explicit Vehicles collection if it exists / has documents
+    try {
+      const vehicleCount = await Vehicle.estimatedDocumentCount();
+      if (vehicleCount > 0) {
+        const vehicles = await Vehicle.find(
+          {},
+          { vehicleNo: 1, fuelType: 1, _id: 0 },
+        )
+          .sort({ vehicleNo: 1 })
+          .lean();
+        // map to the old shape
+        return res.status(200).json(
+          vehicles.map((v) => ({
+            vehicleNo: v.vehicleNo,
+            fuelType: v.fuelType,
+          })),
+        );
+      }
+    } catch (innerErr) {
+      // if Vehicles collection doesn't exist or another issue, fall back to aggregation below
+      console.error(
+        "Vehicle collection check failed, falling back to transports aggregation:",
+        innerErr.message,
+      );
+    }
+
+    const vehicles = await Transport.aggregate([
+      { $match: { vehicleNo: { $ne: null } } },
+      // Sort by date desc so $first returns latest fuelType
+      { $sort: { date: -1 } },
+      { $group: { _id: "$vehicleNo", fuelType: { $first: "$fuelType" } } },
+      { $project: { vehicleNo: "$_id", fuelType: 1, _id: 0 } },
+      { $sort: { vehicleNo: 1 } },
+    ]);
+
+    res.status(200).json(vehicles);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 

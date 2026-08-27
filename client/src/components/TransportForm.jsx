@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import api from "../services/api";
 
 const FUEL_RATES = {
   Diesel: 98.4,
   CNG: 99,
+  Petrol: 105.0,
 };
 
 const TRANSPORTER_VEHICLE_PAIRS = [
@@ -72,7 +74,8 @@ const TRANSPORTER_VEHICLE_PAIRS = [
 
 const sectionClass =
   "rounded-3xl border border-slate-200/80 bg-slate-50/70 p-6 dark:border-slate-800 dark:bg-slate-950/30";
-const labelClass = "mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300";
+const labelClass =
+  "mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300";
 const errorClass = "mt-2 text-xs font-medium text-red-500";
 const metricCardClass =
   "rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80";
@@ -83,7 +86,8 @@ const getVehicleForTransportName = (transportName) => {
   if (!transportName) return null;
   const normalized = transportName.trim().toLowerCase();
   const matches = TRANSPORTER_VEHICLE_PAIRS.filter(
-    (pair) => pair.transportName.trim().toLowerCase() === normalized && pair.vehicleNo,
+    (pair) =>
+      pair.transportName.trim().toLowerCase() === normalized && pair.vehicleNo,
   );
   return matches.length === 1 ? matches[0].vehicleNo : null;
 };
@@ -100,16 +104,21 @@ const getTransportNameForVehicleNo = (vehicleNo) => {
 const getTransportPairSelectValue = (form) => {
   const match = TRANSPORTER_VEHICLE_PAIRS.find(
     (pair) =>
-      pair.transportName === form.transportName && pair.vehicleNo === form.vehicleNo,
+      pair.transportName === form.transportName &&
+      pair.vehicleNo === form.vehicleNo,
   );
   return match ? `${match.transportName} | ${match.vehicleNo}` : "";
 };
 
 const transportNameSuggestions = Array.from(
-  new Set(TRANSPORTER_VEHICLE_PAIRS.map((pair) => pair.transportName).filter(Boolean)),
+  new Set(
+    TRANSPORTER_VEHICLE_PAIRS.map((pair) => pair.transportName).filter(Boolean),
+  ),
 ).sort();
 const vehicleNoSuggestions = Array.from(
-  new Set(TRANSPORTER_VEHICLE_PAIRS.map((pair) => pair.vehicleNo).filter(Boolean)),
+  new Set(
+    TRANSPORTER_VEHICLE_PAIRS.map((pair) => pair.vehicleNo).filter(Boolean),
+  ),
 ).sort();
 
 export default function TransportForm({
@@ -120,6 +129,57 @@ export default function TransportForm({
   isEdit,
 }) {
   const [errors, setErrors] = useState({});
+  const [vehicles, setVehicles] = useState([]); // { vehicleNo, fuelType }
+  const [vehicleNoSuggestionsState, setVehicleNoSuggestionsState] =
+    useState(vehicleNoSuggestions);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchVehicles = async () => {
+      // Prefer dedicated vehicles collection; fall back to transport aggregation if empty
+      let list = [];
+      try {
+        const res = await api.get("/vehicles");
+        list = Array.isArray(res.data)
+          ? res.data.map((v) => ({
+              vehicleNo: v.vehicleNo,
+              fuelType: v.fuelType,
+              _id: v._id,
+              fuelRate: v.fuelRate,
+            }))
+          : [];
+      } catch (e) {
+        list = [];
+        console.error("Failed to fetch vehicles from /vehicles endpoint:", e);
+      }
+
+      if (list.length === 0) {
+        try {
+          const res2 = await api.get("/transports/vehicle-options");
+          list = Array.isArray(res2.data) ? res2.data : [];
+        } catch (e) {
+          list = [];
+          console.error(
+            "Failed to fetch vehicles from /transports/vehicle-options endpoint:",
+            e,
+          );
+        }
+      }
+
+      if (!mounted) return;
+      setVehicles(list);
+      setVehicleNoSuggestionsState(
+        Array.from(
+          new Set(list.map((v) => v.vehicleNo).filter(Boolean)),
+        ).sort(),
+      );
+    };
+
+    fetchVehicles();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const totalAmount = toNumber(form.quantity) * toNumber(form.rate);
@@ -151,14 +211,20 @@ export default function TransportForm({
     const nextErrors = {};
 
     if (!form.date) nextErrors.date = "Date is required";
-    if (!form.transportName) nextErrors.transportName = "Transport name is required";
+    if (!form.transportName)
+      nextErrors.transportName = "Transport name is required";
     if (!form.vehicleNo) nextErrors.vehicleNo = "Vehicle number is required";
     if (!form.partyName) nextErrors.partyName = "Party name is required";
-    if (toNumber(form.quantity) <= 0) nextErrors.quantity = "Quantity must be greater than 0";
-    if (toNumber(form.rate) <= 0) nextErrors.rate = "Rate must be greater than 0";
-    if (toNumber(form.advancePaid) < 0) nextErrors.advancePaid = "Advance cannot be negative";
-    if (toNumber(form.fuelQuantity) < 0) nextErrors.fuelQuantity = "Fuel quantity cannot be negative";
-    if (toNumber(form.fuelRate) < 0) nextErrors.fuelRate = "Fuel rate cannot be negative";
+    if (toNumber(form.quantity) <= 0)
+      nextErrors.quantity = "Quantity must be greater than 0";
+    if (toNumber(form.rate) <= 0)
+      nextErrors.rate = "Rate must be greater than 0";
+    if (toNumber(form.advancePaid) < 0)
+      nextErrors.advancePaid = "Advance cannot be negative";
+    if (toNumber(form.fuelQuantity) < 0)
+      nextErrors.fuelQuantity = "Fuel quantity cannot be negative";
+    if (toNumber(form.fuelRate) < 0)
+      nextErrors.fuelRate = "Fuel rate cannot be negative";
 
     return nextErrors;
   };
@@ -213,24 +279,64 @@ export default function TransportForm({
     if (name === "transportName") {
       const transportName = String(parsedValue || "");
       const matchedVehicle = getVehicleForTransportName(transportName);
+      // If there's a vehicle for this transport in local static pairs, use it; otherwise keep previous vehicle
+      let newFuelType = null;
+      let newFuelRate = null;
+      if (matchedVehicle) {
+        const found = vehicles.find((v) => v.vehicleNo === matchedVehicle);
+        if (found) {
+          if (found.fuelType) newFuelType = found.fuelType;
+          if (typeof found.fuelRate === "number") newFuelRate = found.fuelRate;
+        }
+      }
       setForm((prev) => ({
         ...prev,
         transportName,
         vehicleNo: matchedVehicle || prev.vehicleNo,
+        ...(newFuelType
+          ? {
+              fuelType: newFuelType,
+              fuelRate:
+                typeof newFuelRate === "number"
+                  ? newFuelRate
+                  : (FUEL_RATES[newFuelType] ?? prev.fuelRate),
+            }
+          : {}),
       }));
-      setErrors((prev) => ({ ...prev, transportName: undefined, vehicleNo: undefined }));
+      setErrors((prev) => ({
+        ...prev,
+        transportName: undefined,
+        vehicleNo: undefined,
+      }));
       return;
     }
 
     if (name === "vehicleNo") {
       const vehicleNo = String(parsedValue || "").toUpperCase();
       const matchedTransport = getTransportNameForVehicleNo(vehicleNo);
+      const found = vehicles.find((v) => v.vehicleNo === vehicleNo);
+      const newFuelType = found ? found.fuelType : null;
+      const newFuelRate =
+        found && typeof found.fuelRate === "number" ? found.fuelRate : null;
       setForm((prev) => ({
         ...prev,
         vehicleNo,
         transportName: matchedTransport || prev.transportName,
+        ...(newFuelType
+          ? {
+              fuelType: newFuelType,
+              fuelRate:
+                typeof newFuelRate === "number"
+                  ? newFuelRate
+                  : (FUEL_RATES[newFuelType] ?? prev.fuelRate),
+            }
+          : {}),
       }));
-      setErrors((prev) => ({ ...prev, transportName: undefined, vehicleNo: undefined }));
+      setErrors((prev) => ({
+        ...prev,
+        transportName: undefined,
+        vehicleNo: undefined,
+      }));
       return;
     }
 
@@ -286,7 +392,9 @@ export default function TransportForm({
 
       <section className={sectionClass}>
         <div className="mb-5">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Basic Details</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Basic Details
+          </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Core transport and trip identification information.
           </p>
@@ -299,14 +407,37 @@ export default function TransportForm({
               onChange={(e) => {
                 const [transportName, vehicleNo] = e.target.value.split(" | ");
                 if (transportName && vehicleNo) {
+                  const found = vehicles.find((v) => v.vehicleNo === vehicleNo);
+                  const newFuelType = found ? found.fuelType : null;
+                  const newFuelRate =
+                    found && typeof found.fuelRate === "number"
+                      ? found.fuelRate
+                      : null;
                   setForm((prev) => ({
                     ...prev,
                     transportName,
                     vehicleNo,
+                    ...(newFuelType
+                      ? {
+                          fuelType: newFuelType,
+                          fuelRate:
+                            typeof newFuelRate === "number"
+                              ? newFuelRate
+                              : (FUEL_RATES[newFuelType] ?? prev.fuelRate),
+                        }
+                      : {}),
                   }));
-                  setErrors((prev) => ({ ...prev, transportName: undefined, vehicleNo: undefined }));
+                  setErrors((prev) => ({
+                    ...prev,
+                    transportName: undefined,
+                    vehicleNo: undefined,
+                  }));
                 } else {
-                  setForm((prev) => ({ ...prev, transportName: "", vehicleNo: "" }));
+                  setForm((prev) => ({
+                    ...prev,
+                    transportName: "",
+                    vehicleNo: "",
+                  }));
                 }
               }}
               className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
@@ -318,6 +449,16 @@ export default function TransportForm({
                   value={`${pair.transportName} | ${pair.vehicleNo}`}
                 >
                   {pair.transportName} | {pair.vehicleNo}
+                </option>
+              ))}
+              {/* Also include vehicles from server if available */}
+              {vehicles.map((v) => (
+                <option
+                  key={`server-${v.vehicleNo}`}
+                  value={`${getTransportNameForVehicleNo(v.vehicleNo) || ""} | ${v.vehicleNo}`}
+                >
+                  {getTransportNameForVehicleNo(v.vehicleNo) || "Unknown"} |{" "}
+                  {v.vehicleNo}
                 </option>
               ))}
             </select>
@@ -350,7 +491,7 @@ export default function TransportForm({
               onChange={handleChange}
             />
             <datalist id="vehicleNos">
-              {vehicleNoSuggestions.map((vehicleNo) => (
+              {(vehicleNoSuggestionsState || []).map((vehicleNo) => (
                 <option key={vehicleNo} value={vehicleNo} />
               ))}
             </datalist>
@@ -361,7 +502,9 @@ export default function TransportForm({
 
       <section className={sectionClass}>
         <div className="mb-5">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Document & Party</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Document & Party
+          </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Reference details for freight and consignee tracking.
           </p>
@@ -395,14 +538,20 @@ export default function TransportForm({
 
           <div>
             <label className={labelClass}>Company</label>
-            <input name="company" value={form.company || ""} onChange={handleChange} />
+            <input
+              name="company"
+              value={form.company || ""}
+              onChange={handleChange}
+            />
           </div>
         </div>
       </section>
 
       <section className={sectionClass}>
         <div className="mb-5">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Cargo & Rate</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Cargo & Rate
+          </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Quantity, rate, and delivery location.
           </p>
@@ -410,31 +559,51 @@ export default function TransportForm({
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <div>
             <label className={labelClass}>Location</label>
-            <input name="location" value={form.location} onChange={handleChange} />
+            <input
+              name="location"
+              value={form.location}
+              onChange={handleChange}
+            />
           </div>
 
           <div>
             <label className={labelClass}>Quantity</label>
-            <input type="number" name="quantity" value={form.quantity} onChange={handleChange} />
+            <input
+              type="number"
+              name="quantity"
+              value={form.quantity}
+              onChange={handleChange}
+            />
             {renderError("quantity")}
           </div>
 
           <div>
             <label className={labelClass}>Rate</label>
-            <input type="number" name="rate" value={form.rate} onChange={handleChange} />
+            <input
+              type="number"
+              name="rate"
+              value={form.rate}
+              onChange={handleChange}
+            />
             {renderError("rate")}
           </div>
 
           <div>
             <label className={labelClass}>Total Amount</label>
-            <input value={Number(form.totalAmount || 0).toFixed(2)} disabled className="cursor-not-allowed opacity-80" />
+            <input
+              value={Number(form.totalAmount || 0).toFixed(2)}
+              disabled
+              className="cursor-not-allowed opacity-80"
+            />
           </div>
         </div>
       </section>
 
       <section className={sectionClass}>
         <div className="mb-5">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Fuel Details</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Fuel Details
+          </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Fuel type and automatic cost calculation.
           </p>
@@ -468,31 +637,50 @@ export default function TransportForm({
 
           <div>
             <label className={labelClass}>Fuel Rate</label>
-            <input type="number" name="fuelRate" value={form.fuelRate} readOnly className="cursor-not-allowed opacity-80" />
+            <input
+              type="number"
+              name="fuelRate"
+              value={form.fuelRate}
+              readOnly
+              className="cursor-not-allowed opacity-80"
+            />
             {renderError("fuelRate")}
           </div>
 
           <div>
             <label className={labelClass}>Fuel Quantity</label>
-            <input type="number" name="fuelQuantity" value={form.fuelQuantity} onChange={handleChange} />
+            <input
+              type="number"
+              name="fuelQuantity"
+              value={form.fuelQuantity}
+              onChange={handleChange}
+            />
             {renderError("fuelQuantity")}
           </div>
 
           <div>
             <label className={labelClass}>Fuel Expense</label>
-            <input value={Number(form.fuelExpense || 0).toFixed(2)} disabled className="cursor-not-allowed opacity-80" />
+            <input
+              value={Number(form.fuelExpense || 0).toFixed(2)}
+              disabled
+              className="cursor-not-allowed opacity-80"
+            />
           </div>
         </div>
       </section>
 
       <section className={sectionClass}>
         <div className="mb-5">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Payment</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Payment
+          </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Advance and settlement tracking.
           </p>
         </div>
-        <div className={`grid gap-5 ${isEdit ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2"}`}>
+        <div
+          className={`grid gap-5 ${isEdit ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2"}`}
+        >
           {isEdit && (
             <>
               <div>
@@ -507,20 +695,34 @@ export default function TransportForm({
 
               <div>
                 <label className={labelClass}>Pay Amount</label>
-                <input type="number" name="payAmount" value={form.payAmount || 0} onChange={handleChange} />
+                <input
+                  type="number"
+                  name="payAmount"
+                  value={form.payAmount || 0}
+                  onChange={handleChange}
+                />
               </div>
             </>
           )}
 
           <div>
             <label className={labelClass}>Advance Paid</label>
-            <input type="number" name="advancePaid" value={form.advancePaid} onChange={handleChange} />
+            <input
+              type="number"
+              name="advancePaid"
+              value={form.advancePaid}
+              onChange={handleChange}
+            />
             {renderError("advancePaid")}
           </div>
 
           <div>
             <label className={labelClass}>Balance</label>
-            <input value={Number(form.balance || 0).toFixed(2)} disabled className="cursor-not-allowed opacity-80" />
+            <input
+              value={Number(form.balance || 0).toFixed(2)}
+              disabled
+              className="cursor-not-allowed opacity-80"
+            />
           </div>
         </div>
       </section>

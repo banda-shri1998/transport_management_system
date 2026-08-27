@@ -1,0 +1,443 @@
+[
+  {
+    "transportName": "Mahadev Kharade",
+    "vehicleNo": "MH12FC7196",
+    "mobileNo": "9209130994",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Komal Bharat Mahanvar",
+    "vehicleNo": "MH13AX3963",
+    "mobileNo": "9665198009",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Ujjwala R. Chavare",
+    "vehicleNo": "MH12NX9725",
+    "mobileNo": "9822319127",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Vinayak Gaikwad",
+    "vehicleNo": "MH14DM9767",
+    "mobileNo": "9623665388",
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "Vinayak Gaikwad",
+    "vehicleNo": "MH13CU5095",
+    "mobileNo": "9623665388",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Vinayak Gaikwad",
+    "vehicleNo": "MH13CU9849",
+    "mobileNo": "9623665388",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Nilesh T. Solankar",
+    "vehicleNo": "MH24J9115",
+    "mobileNo": "9975652013",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Archna Somnath Aglave",
+    "vehicleNo": "MH42T0683",
+    "mobileNo": "9922525178",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Sushant Gaikwad",
+    "vehicleNo": "MH13EP3099",
+    "mobileNo": "9850999987",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "New Sankalp Trs",
+    "vehicleNo": "MH45AF4242",
+    "mobileNo": "7820969696",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "New Sankalp Trs",
+    "vehicleNo": "MH13DQ2564",
+    "mobileNo": "7820969696",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Rajkumar Dhavane",
+    "vehicleNo": "MH13DQ1998",
+    "mobileNo": "8788909133",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Avinash Khendad",
+    "vehicleNo": "MH12QW7342",
+    "mobileNo": "9022929991",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Jaysing Dhavne",
+    "vehicleNo": "MH42AQ6267",
+    "mobileNo": "9766253579",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Datta Thombe",
+    "vehicleNo": "MH10Z3939",
+    "mobileNo": "9960906768",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Shivaji Bhosale",
+    "vehicleNo": "MH12LT6777",
+    "mobileNo": "9356391030",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Siddheswar Thorat",
+    "vehicleNo": "MH13DQ2351",
+    "mobileNo": "9370270910",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Salim Mulani",
+    "vehicleNo": "MH12FC4491",
+    "mobileNo": "9021606255",
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "Jyoti R. Rautrao",
+    "vehicleNo": "MH13DQ6323",
+    "mobileNo": "9625275050",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Rahul Satpute",
+    "vehicleNo": "MH12MV7011",
+    "mobileNo": "8329444274",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Satish Gandhure",
+    "vehicleNo": "MH13DQ5053",
+    "mobileNo": "9960819672",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "G. A. Pathan",
+    "vehicleNo": "MH13AX3385",
+    "mobileNo": "9921860869",
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "G. A. Pathan",
+    "vehicleNo": "MH14CP7886",
+    "mobileNo": "9921860869",
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "G. A. Pathan",
+    "vehicleNo": "MH36F0071",
+    "mobileNo": "9921860869",
+    "fuelType": "Diesel",
+    "maximumCapacity": 20
+  },
+  {
+    "transportName": "G. A. Pathan",
+    "vehicleNo": "MH12KP7348",
+    "mobileNo": "9921860869",
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "Ambadas More",
+    "vehicleNo": "MH12FZ4202",
+    "mobileNo": "9850281709",
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "Ambadas More",
+    "vehicleNo": "MH12HV4363",
+    "mobileNo": "9850281709",
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "Ravi Jadhav (STC)",
+    "vehicleNo": "MH12TV6320",
+    "mobileNo": "own truck drivers",
+    "fuelType": "CNG",
+    "maximumCapacity": 10
+  },
+  {
+    "transportName": "Santosh Gharbude (STC)",
+    "vehicleNo": "MH12TV6326",
+    "mobileNo": null,
+    "fuelType": "CNG",
+    "maximumCapacity": 10
+  },
+  {
+    "transportName": "Prakash Bansode (STC)",
+    "vehicleNo": "MH12TV6327",
+    "mobileNo": null,
+    "fuelType": "CNG",
+    "maximumCapacity": 10
+  },
+  {
+    "transportName": "Sachin Dede (STC)",
+    "vehicleNo": "MH12TV6328",
+    "mobileNo": null,
+    "fuelType": "CNG",
+    "maximumCapacity": 10
+  },
+  {
+    "transportName": "Ramchandra k. Kantee (STC)",
+    "vehicleNo": "MH13EP1183",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Sharad Thorat (STC)",
+    "vehicleNo": "MH13EP1184",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Shrtughan Kshirsagar (STC)",
+    "vehicleNo": "MH13EP1185",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Satish Aglave (STC)",
+    "vehicleNo": "MH13EP1186",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Laxman Chorghade (STC)",
+    "vehicleNo": "MH13EP1187",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Shukat Jahagirdar (STC)",
+    "vehicleNo": "MH12SF1000",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 20
+  },
+  {
+    "transportName": "Shri Sai Roadlines",
+    "vehicleNo": null,
+    "mobileNo": "9423333334",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Sanjay Limbaji Bhosale",
+    "vehicleNo": null,
+    "mobileNo": "9922523544",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Imtiyaj Bagwan",
+    "vehicleNo": null,
+    "mobileNo": "8983067822",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Anand B. Mane",
+    "vehicleNo": null,
+    "mobileNo": "8412061844",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Jai Hanuman Transport",
+    "vehicleNo": null,
+    "mobileNo": "9657199955",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Dhanjay Kure",
+    "vehicleNo": null,
+    "mobileNo": "9767473417",
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Mayur Gavhane",
+    "vehicleNo": "MH46AR0036",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "Dnyandev Saykar",
+    "vehicleNo": "MH16Q6379",
+    "mobileNo": "9075747650",
+    "fuelType": "Diesel",
+    "maximumCapacity": 10
+  },
+  {
+    "transportName": "Dnyandev Saykar",
+    "vehicleNo": "MH16AE1011",
+    "mobileNo": "9075747650",
+    "fuelType": "Diesel",
+    "maximumCapacity": 10
+  },
+  {
+    "transportName": "Dnyandev Saykar",
+    "vehicleNo": "MH17AG0795",
+    "mobileNo": "9075747650",
+    "fuelType": "Diesel",
+    "maximumCapacity": 12
+  },
+  {
+    "transportName": "Dinesh Rankhambe",
+    "vehicleNo": "MH45AF3468",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Kalyan Atkare",
+    "vehicleNo": "MH48CB4453",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Kiran J. Salgar",
+    "vehicleNo": "MH45AF9405",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Dilip Hanmant Raut",
+    "vehicleNo": "MH13DQ6242",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Seema Sachin Gaikwad",
+    "vehicleNo": "MH13DQ9930",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Bhaurao Shankarrao Kawathe",
+    "vehicleNo": "MH13EP6566",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Sumit Sachin Kawathe",
+    "vehicleNo": "MH13R3666",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "New Sankalp Trs",
+    "vehicleNo": "MH45AF4242",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "New Sankalp Trs",
+    "vehicleNo": "MH13DQ2564",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Rohan Trimbak Kadam",
+    "vehicleNo": "MH20CT1919",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Shashikant Balu Yadav",
+    "vehicleNo": "MH12NX3472",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 25
+  },
+  {
+    "transportName": "Sudhir Bandu Manjare",
+    "vehicleNo": "MH13DQ9943",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Abhijit Chatke",
+    "vehicleNo": "MH10DT4375",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Rajkumar Dhavane",
+    "vehicleNo": "MH17BD3386",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  },
+  {
+    "transportName": "Dadasaheb Navnath Dhere",
+    "vehicleNo": "MH45AF4848",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 10
+  },
+  {
+    "transportName": "Ashish Phalke",
+    "vehicleNo": "MH45AX1063",
+    "mobileNo": null,
+    "fuelType": "Diesel",
+    "maximumCapacity": 13
+  }
+]

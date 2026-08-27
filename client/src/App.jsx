@@ -64,23 +64,26 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AllRecords from "./pages/AllRecords";
 import AddRecord from "./pages/AddRecord";
-import PrivateRoute from "./routes";
+import { PrivateRoute, StaffRoute, AdminRoute } from "./routes";
 import useAuth from "./hooks/useAuth";
 import EditRecord from "./pages/EditRecord";
 import Reports from "./pages/Reports";
 import ImportRecords from "./pages/ImportRecords";
 import PartyStatement from "./pages/PartyStatement";
+import Vehicles from "./pages/Vehicles";
 import ErrorPage from "./pages/ErrorPage";
 
 export default function App() {
   const { user, loading } = useAuth();
 
-  // ⛔ Wait until auth state is resolved
   if (loading) return null;
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/" replace /> : <Login />}
+      />
 
       <Route
         path="/"
@@ -94,57 +97,87 @@ export default function App() {
       <Route
         path="/records"
         element={
-          <PrivateRoute>
+          <StaffRoute>
             <AllRecords />
-          </PrivateRoute>
+          </StaffRoute>
         }
       />
 
       <Route
         path="/add"
         element={
-          <PrivateRoute>
+          <StaffRoute>
             <AddRecord />
-          </PrivateRoute>
+          </StaffRoute>
         }
       />
 
       <Route
         path="/import"
         element={
-          <PrivateRoute>
+          <AdminRoute>
             <ImportRecords />
-          </PrivateRoute>
+          </AdminRoute>
         }
       />
 
       <Route
         path="/edit/:id"
         element={
-          <PrivateRoute>
+          <AdminRoute>
             <EditRecord />
-          </PrivateRoute>
+          </AdminRoute>
         }
       />
 
       <Route
         path="/reports"
         element={
-          <PrivateRoute>
+          <StaffRoute>
             <Reports />
-          </PrivateRoute>
+          </StaffRoute>
         }
       />
 
       <Route
         path="/party-statement"
         element={
-          <PrivateRoute>
+          <StaffRoute>
             <PartyStatement />
-          </PrivateRoute>
+          </StaffRoute>
         }
       />
-      <Route path="*" element={<ErrorPage />} />
+
+      <Route
+        path="/vehicles"
+        element={
+          <AdminRoute>
+            <Vehicles />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/error/403"
+        element={
+          <ErrorPage
+            status={403}
+            title="Access denied"
+            message="You do not have permission to view this page. Please contact your administrator."
+          />
+        }
+      />
+
+      <Route
+        path="*"
+        element={
+          <ErrorPage
+            status={404}
+            title="Page not found"
+            message="The page you are looking for does not exist or may have moved."
+          />
+        }
+      />
     </Routes>
   );
 }
