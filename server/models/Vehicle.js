@@ -22,7 +22,7 @@ const vehicleSchema = new mongoose.Schema(
       default: "",
     },
   },
-  { timestamps: true },
+  { timestamps: true, collection: "Vehicles" },
 );
 
 export default mongoose.model("Vehicle", vehicleSchema);

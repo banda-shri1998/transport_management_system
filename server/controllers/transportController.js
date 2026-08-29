@@ -244,7 +244,20 @@ export const searchTransports = async (req, res) => {
       query.balance = { $lte: 0 };
     }
 
-    const totalRecords = await Transport.countDocuments(query);
+    const [totalRecords, summaryResult] = await Promise.all([
+      Transport.countDocuments(query),
+      Transport.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: null,
+            totalFreight: { $sum: { $ifNull: ["$totalAmount", 0] } },
+            totalAdvance: { $sum: { $ifNull: ["$advancePaid", 0] } },
+            totalFuel: { $sum: { $ifNull: ["$fuelExpense", 0] } },
+          },
+        },
+      ]),
+    ]);
 
     const allowedSortFields = new Set(["date", "freightMemoNo"]);
     const sortField = allowedSortFields.has(sortBy) ? sortBy : "date";
@@ -258,6 +271,11 @@ export const searchTransports = async (req, res) => {
 
     res.status(200).json({
       records,
+      summary: {
+        totalFreight: summaryResult[0]?.totalFreight || 0,
+        totalAdvance: summaryResult[0]?.totalAdvance || 0,
+        totalFuel: summaryResult[0]?.totalFuel || 0,
+      },
       pagination: {
         currentPage: page,
         pageSize: limit,

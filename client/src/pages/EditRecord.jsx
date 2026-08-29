@@ -36,7 +36,7 @@ export default function EditRecord() {
 
     try {
       await api.put(`/transports/${id}`, form);
-      navigate("/records");
+      navigate("/");
     } finally {
       setSaving(false);
     }

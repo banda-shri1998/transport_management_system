@@ -10,16 +10,24 @@ const generateToken = (user) =>
 export const register = async (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
-    const email = String(req.body.email || "").trim().toLowerCase();
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
     const password = String(req.body.password || "");
-    const role = ["Admin", "Staff"].includes(req.body.role) ? req.body.role : "Staff";
+    const role = ["Admin", "Staff"].includes(req.body.role)
+      ? req.body.role
+      : "Staff";
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email, and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Name, email, and password are required" });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters" });
     }
 
     const existingUser = await User.findOne({ email });
@@ -28,9 +36,16 @@ export const register = async (req, res) => {
 
     const user = new User({ name, email, password, role });
     await user.save();
+    const token = generateToken(user);
     res.status(201).json({
       message: "User registered successfully",
-      token: generateToken(user),
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -52,7 +67,16 @@ export const login = async (req, res) => {
     if (!match)
       return res.status(401).json({ message: "Invalid email or password" });
 
-    res.json({ token: generateToken(user) });
+    const token = generateToken(user);
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error) {
     res.status(500).json({ message: error.message || "Login failed" });
   }
@@ -63,7 +87,11 @@ export const me = async (req, res) => {
     // protect middleware should have already populated req.user
     const tokenUser = req.user || {};
     // tokenUser may be payload { id, role } or full user object depending on how token was issued
-    const userId = tokenUser.id || tokenUser._id || tokenUser.userId || tokenUser.payload?.id;
+    const userId =
+      tokenUser.id ||
+      tokenUser._id ||
+      tokenUser.userId ||
+      tokenUser.payload?.id;
 
     if (!userId) {
       // If no id in token, return the token payload so client at least knows role if present
@@ -76,6 +104,8 @@ export const me = async (req, res) => {
 
     return res.json(user);
   } catch (error) {
-    return res.status(500).json({ message: error.message || "Failed to fetch profile" });
+    return res
+      .status(500)
+      .json({ message: error.message || "Failed to fetch profile" });
   }
 };

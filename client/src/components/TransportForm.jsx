@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
-import api from "../services/api";
 
 const FUEL_RATES = {
   Diesel: 98.4,
   CNG: 99,
-  Petrol: 105.0,
 };
 
 const TRANSPORTER_VEHICLE_PAIRS = [
+  // Fallback static list (kept for backward compatibility)
   { transportName: "Mahadev Kharade", vehicleNo: "MH12FC7196" },
   { transportName: "Komal Bharat Mahanvar", vehicleNo: "MH13AX3963" },
-  { transportName: "Ujjwala R. Chavare", vehicleNo: "MH12NX9725" },
+  { transportName: "Ujjwala Ramesh Chavare", vehicleNo: "MH12NX9725" },
   { transportName: "Vinayak Gaikwad", vehicleNo: "MH14DM9767" },
   { transportName: "Vinayak Gaikwad", vehicleNo: "MH13CU5095" },
   { transportName: "Vinayak Gaikwad", vehicleNo: "MH13CU9849" },
@@ -19,9 +18,9 @@ const TRANSPORTER_VEHICLE_PAIRS = [
   { transportName: "Archna Somnath Aglave", vehicleNo: "MH04GK8389" },
   { transportName: "Archna Somnath Aglave", vehicleNo: "MH13R4098" },
   { transportName: "Sushant Gaikwad", vehicleNo: "MH13EP3099" },
-  { transportName: "New Sankalp Trs", vehicleNo: "MH45AF4242" },
-  { transportName: "New Sankalp Trs", vehicleNo: "MH13DQ2564" },
-  { transportName: "Rajkumar Dhavane", vehicleNo: "MH13DQ1998" },
+  { transportName: "New Sankalp Traders", vehicleNo: "MH45AF4242" },
+  { transportName: "New Sankalp Traders", vehicleNo: "MH13DQ2564" },
+  { transportName: "Rajkumar Dhavne", vehicleNo: "MH13DQ1998" },
   { transportName: "Avinash Khendad", vehicleNo: "MH12QW7342" },
   { transportName: "Jaysing Dhavne", vehicleNo: "MH42AQ6267" },
   { transportName: "Datta Thombe", vehicleNo: "MH10Z3939" },
@@ -37,16 +36,16 @@ const TRANSPORTER_VEHICLE_PAIRS = [
   { transportName: "G. A. Pathan", vehicleNo: "MH12KP7348" },
   { transportName: "Ambadas More", vehicleNo: "MH12FZ4202" },
   { transportName: "Ambadas More", vehicleNo: "MH12HV4363" },
-  { transportName: "Ravi Jadhav ( STC )", vehicleNo: "MH12TV6320" },
-  { transportName: "Santosh Gharbude ( STC )", vehicleNo: "MH12TV6326" },
-  { transportName: "Prakash Bansode ( STC )", vehicleNo: "MH12TV6327" },
-  { transportName: "Sachin Dede ( STC )", vehicleNo: "MH12TV6328" },
-  { transportName: "Ramchandra k. Kantee ( STC )", vehicleNo: "MH13EP1183" },
-  { transportName: "Sharad Thorat ( STC )", vehicleNo: "MH13EP1184" },
-  { transportName: "Shrutghan Kshirsagar ( STC )", vehicleNo: "MH13EP1185" },
-  { transportName: "Satish Aglave ( STC )", vehicleNo: "MH13EP1186" },
-  { transportName: "Laxman Chorghade ( STC )", vehicleNo: "MH13EP1187" },
-  { transportName: "Shukat Jahagirdar ( STC )", vehicleNo: "MH12SF1000" },
+  { transportName: "Ravi Jadhav (STC)", vehicleNo: "MH12TV6320" },
+  { transportName: "Santosh Gharbude (STC)", vehicleNo: "MH12TV6326" },
+  { transportName: "Prakash Bansode (STC)", vehicleNo: "MH12TV6327" },
+  { transportName: "Sachin Dede (STC)", vehicleNo: "MH12TV6328" },
+  { transportName: "Ramchandra Kante (STC)", vehicleNo: "MH13EP1183" },
+  { transportName: "Sharad Thorat (STC)", vehicleNo: "MH13EP1184" },
+  { transportName: "Shatrughn Kshirsagar (STC)", vehicleNo: "MH13EP1185" },
+  { transportName: "Satish Aglave (STC)", vehicleNo: "MH13EP1186" },
+  { transportName: "Laxman Chorghade (STC)", vehicleNo: "MH13EP1187" },
+  { transportName: "Shukat Jahagirdar (STC)", vehicleNo: "MH12SF1000" },
   { transportName: "Shri Sai Roadlines", vehicleNo: "" },
   { transportName: "Sanjay Limbaji Bhosale", vehicleNo: "" },
   { transportName: "Imtiyaj Bagwan", vehicleNo: "" },
@@ -81,45 +80,10 @@ const metricCardClass =
   "rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80";
 
 const toNumber = (value) => Number(value || 0);
-
-const getVehicleForTransportName = (transportName) => {
-  if (!transportName) return null;
-  const normalized = transportName.trim().toLowerCase();
-  const matches = TRANSPORTER_VEHICLE_PAIRS.filter(
-    (pair) =>
-      pair.transportName.trim().toLowerCase() === normalized && pair.vehicleNo,
-  );
-  return matches.length === 1 ? matches[0].vehicleNo : null;
-};
-
-const getTransportNameForVehicleNo = (vehicleNo) => {
-  if (!vehicleNo) return null;
-  const normalized = vehicleNo.trim().toUpperCase();
-  const match = TRANSPORTER_VEHICLE_PAIRS.find(
-    (pair) => pair.vehicleNo.trim().toUpperCase() === normalized,
-  );
-  return match ? match.transportName : null;
-};
-
-const getTransportPairSelectValue = (form) => {
-  const match = TRANSPORTER_VEHICLE_PAIRS.find(
-    (pair) =>
-      pair.transportName === form.transportName &&
-      pair.vehicleNo === form.vehicleNo,
-  );
-  return match ? `${match.transportName} | ${match.vehicleNo}` : "";
-};
-
-const transportNameSuggestions = Array.from(
-  new Set(
-    TRANSPORTER_VEHICLE_PAIRS.map((pair) => pair.transportName).filter(Boolean),
-  ),
-).sort();
-const vehicleNoSuggestions = Array.from(
-  new Set(
-    TRANSPORTER_VEHICLE_PAIRS.map((pair) => pair.vehicleNo).filter(Boolean),
-  ),
-).sort();
+const getTransportPairSelectValue = (form) =>
+  form?.transportName && form?.vehicleNo
+    ? `${form.transportName} | ${form.vehicleNo}`
+    : "";
 
 export default function TransportForm({
   form,
@@ -129,53 +93,70 @@ export default function TransportForm({
   isEdit,
 }) {
   const [errors, setErrors] = useState({});
-  const [vehicles, setVehicles] = useState([]); // { vehicleNo, fuelType }
-  const [vehicleNoSuggestionsState, setVehicleNoSuggestionsState] =
-    useState(vehicleNoSuggestions);
+  const [pairs, setPairs] = useState(TRANSPORTER_VEHICLE_PAIRS);
+  const [transportNameSuggestions, setTransportNameSuggestions] = useState(
+    Array.from(
+      new Set(
+        TRANSPORTER_VEHICLE_PAIRS.map((p) => p.transportName).filter(Boolean),
+      ),
+    ).sort(),
+  );
+  const [vehicleNoSuggestions, setVehicleNoSuggestions] = useState(
+    Array.from(
+      new Set(
+        TRANSPORTER_VEHICLE_PAIRS.map((p) => p.vehicleNo).filter(Boolean),
+      ),
+    ).sort(),
+  );
 
   useEffect(() => {
+    // Fetch transport records to build up-to-date mapping of transportName <-> vehicleNo
+    // Also fall back to static list if server not available
     let mounted = true;
-    const fetchVehicles = async () => {
-      // Prefer dedicated vehicles collection; fall back to transport aggregation if empty
-      let list = [];
+    (async () => {
       try {
-        const res = await api.get("/vehicles");
-        list = Array.isArray(res.data)
-          ? res.data.map((v) => ({
-              vehicleNo: v.vehicleNo,
-              fuelType: v.fuelType,
-              _id: v._id,
-              fuelRate: v.fuelRate,
-            }))
+        const api = (await import("../services/api")).default;
+        const res = await api.get("/transports");
+        if (!mounted) return;
+        const fromServer = Array.isArray(res.data)
+          ? res.data
+              .map((r) => ({
+                transportName: r.transportName || "",
+                vehicleNo: r.vehicleNo || "",
+              }))
+              .filter((p) => p.transportName || p.vehicleNo)
           : [];
-      } catch (e) {
-        list = [];
-        console.error("Failed to fetch vehicles from /vehicles endpoint:", e);
+        // merge static + server, dedupe by transportName|vehicleNo
+        const map = new Map();
+        [...TRANSPORTER_VEHICLE_PAIRS, ...fromServer].forEach((p) => {
+          const key = `${(p.transportName || "").trim()}|${(p.vehicleNo || "").trim()}`;
+          if (!map.has(key))
+            map.set(key, {
+              transportName: (p.transportName || "").trim(),
+              vehicleNo: (p.vehicleNo || "").trim(),
+            });
+        });
+        const merged = Array.from(map.values());
+        setPairs(merged);
+        setTransportNameSuggestions(
+          Array.from(
+            new Set(merged.map((m) => m.transportName).filter(Boolean)),
+          ).sort(),
+        );
+        setVehicleNoSuggestions(
+          Array.from(
+            new Set(merged.map((m) => m.vehicleNo).filter(Boolean)),
+          ).sort(),
+        );
+      } catch (err) {
+        // ignore — keep static lists
+        console.warn(
+          "Could not fetch transports for suggestions:",
+          err.message,
+        );
       }
+    })();
 
-      if (list.length === 0) {
-        try {
-          const res2 = await api.get("/transports/vehicle-options");
-          list = Array.isArray(res2.data) ? res2.data : [];
-        } catch (e) {
-          list = [];
-          console.error(
-            "Failed to fetch vehicles from /transports/vehicle-options endpoint:",
-            e,
-          );
-        }
-      }
-
-      if (!mounted) return;
-      setVehicles(list);
-      setVehicleNoSuggestionsState(
-        Array.from(
-          new Set(list.map((v) => v.vehicleNo).filter(Boolean)),
-        ).sort(),
-      );
-    };
-
-    fetchVehicles();
     return () => {
       mounted = false;
     };
@@ -278,30 +259,16 @@ export default function TransportForm({
 
     if (name === "transportName") {
       const transportName = String(parsedValue || "");
-      const matchedVehicle = getVehicleForTransportName(transportName);
-      // If there's a vehicle for this transport in local static pairs, use it; otherwise keep previous vehicle
-      let newFuelType = null;
-      let newFuelRate = null;
-      if (matchedVehicle) {
-        const found = vehicles.find((v) => v.vehicleNo === matchedVehicle);
-        if (found) {
-          if (found.fuelType) newFuelType = found.fuelType;
-          if (typeof found.fuelRate === "number") newFuelRate = found.fuelRate;
-        }
-      }
+      const matched = pairs.filter(
+        (pair) =>
+          pair.transportName.trim().toLowerCase() ===
+            transportName.trim().toLowerCase() && pair.vehicleNo,
+      );
+      const matchedVehicle = matched.length === 1 ? matched[0].vehicleNo : null;
       setForm((prev) => ({
         ...prev,
         transportName,
         vehicleNo: matchedVehicle || prev.vehicleNo,
-        ...(newFuelType
-          ? {
-              fuelType: newFuelType,
-              fuelRate:
-                typeof newFuelRate === "number"
-                  ? newFuelRate
-                  : (FUEL_RATES[newFuelType] ?? prev.fuelRate),
-            }
-          : {}),
       }));
       setErrors((prev) => ({
         ...prev,
@@ -313,24 +280,17 @@ export default function TransportForm({
 
     if (name === "vehicleNo") {
       const vehicleNo = String(parsedValue || "").toUpperCase();
-      const matchedTransport = getTransportNameForVehicleNo(vehicleNo);
-      const found = vehicles.find((v) => v.vehicleNo === vehicleNo);
-      const newFuelType = found ? found.fuelType : null;
-      const newFuelRate =
-        found && typeof found.fuelRate === "number" ? found.fuelRate : null;
+      const match = pairs.find(
+        (pair) =>
+          pair.vehicleNo &&
+          pair.vehicleNo.trim().toUpperCase() ===
+            vehicleNo.trim().toUpperCase(),
+      );
+      const matchedTransport = match ? match.transportName : null;
       setForm((prev) => ({
         ...prev,
         vehicleNo,
         transportName: matchedTransport || prev.transportName,
-        ...(newFuelType
-          ? {
-              fuelType: newFuelType,
-              fuelRate:
-                typeof newFuelRate === "number"
-                  ? newFuelRate
-                  : (FUEL_RATES[newFuelType] ?? prev.fuelRate),
-            }
-          : {}),
       }));
       setErrors((prev) => ({
         ...prev,
@@ -407,25 +367,10 @@ export default function TransportForm({
               onChange={(e) => {
                 const [transportName, vehicleNo] = e.target.value.split(" | ");
                 if (transportName && vehicleNo) {
-                  const found = vehicles.find((v) => v.vehicleNo === vehicleNo);
-                  const newFuelType = found ? found.fuelType : null;
-                  const newFuelRate =
-                    found && typeof found.fuelRate === "number"
-                      ? found.fuelRate
-                      : null;
                   setForm((prev) => ({
                     ...prev,
                     transportName,
                     vehicleNo,
-                    ...(newFuelType
-                      ? {
-                          fuelType: newFuelType,
-                          fuelRate:
-                            typeof newFuelRate === "number"
-                              ? newFuelRate
-                              : (FUEL_RATES[newFuelType] ?? prev.fuelRate),
-                        }
-                      : {}),
                   }));
                   setErrors((prev) => ({
                     ...prev,
@@ -443,22 +388,12 @@ export default function TransportForm({
               className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             >
               <option value="">Choose transporter and vehicle</option>
-              {TRANSPORTER_VEHICLE_PAIRS.map((pair) => (
+              {pairs.map((pair) => (
                 <option
                   key={`${pair.transportName}-${pair.vehicleNo}`}
                   value={`${pair.transportName} | ${pair.vehicleNo}`}
                 >
                   {pair.transportName} | {pair.vehicleNo}
-                </option>
-              ))}
-              {/* Also include vehicles from server if available */}
-              {vehicles.map((v) => (
-                <option
-                  key={`server-${v.vehicleNo}`}
-                  value={`${getTransportNameForVehicleNo(v.vehicleNo) || ""} | ${v.vehicleNo}`}
-                >
-                  {getTransportNameForVehicleNo(v.vehicleNo) || "Unknown"} |{" "}
-                  {v.vehicleNo}
                 </option>
               ))}
             </select>
@@ -491,7 +426,7 @@ export default function TransportForm({
               onChange={handleChange}
             />
             <datalist id="vehicleNos">
-              {(vehicleNoSuggestionsState || []).map((vehicleNo) => (
+              {vehicleNoSuggestions.map((vehicleNo) => (
                 <option key={vehicleNo} value={vehicleNo} />
               ))}
             </datalist>

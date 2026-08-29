@@ -71,7 +71,7 @@ const transportSchema = new mongoose.Schema(
 
     fuelType: {
       type: String,
-      enum: ["Diesel", "CNG", "Petrol"],
+      enum: ["Diesel", "CNG"],
       default: "Diesel",
     },
 
@@ -119,6 +119,7 @@ const transportSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+
   },
   { timestamps: true },
 );

@@ -2,6 +2,7 @@ import Navbar from "../components/Navbar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
 import PageContainer from "../components/PageContainer";
 import api from "../services/api";
 import FreightFilterPanel from "../components/reports/FreightFilterPanel";
@@ -116,6 +117,11 @@ export default function Reports() {
   const [limit, setLimit] = useState(25);
   const [totalPages, setTotalPages] = useState(0);
   const [dbTotalRecords, setDbTotalRecords] = useState(0);
+  const [reportSummary, setReportSummary] = useState({
+    totalFreight: 0,
+    totalAdvance: 0,
+    totalFuel: 0,
+  });
   const [records, setRecords] = useState([]);
   const [uploadedRecords, setUploadedRecords] = useState([]);
   const [reportFileName, setReportFileName] = useState("");
@@ -203,6 +209,11 @@ export default function Reports() {
       setRecords(res.data.records);
       setTotalPages(res.data.pagination.totalPages);
       setDbTotalRecords(res.data.pagination.totalRecords);
+      setReportSummary(res.data.summary || {
+        totalFreight: 0,
+        totalAdvance: 0,
+        totalFuel: 0,
+      });
     } catch (error) {
       console.error("Error fetching records:", error);
     }
@@ -454,6 +465,25 @@ export default function Reports() {
     );
   };
 
+  const handleDownloadXlsx = () => {
+    const totals = currentRecords.reduce(
+      (summary, record) => ({
+        quantity: summary.quantity + Number(record.quantity || 0), rate: summary.rate + Number(record.rate || 0), totalAmount: summary.totalAmount + Number(record.totalAmount || 0), advancePaid: summary.advancePaid + Number(record.advancePaid || 0), fuelExpense: summary.fuelExpense + Number(record.fuelExpense || 0), balance: summary.balance + Number(record.balance || 0),
+      }), { quantity: 0, rate: 0, totalAmount: 0, advancePaid: 0, fuelExpense: 0, balance: 0 },
+    );
+    const rows = [visibleColumns.map((column) => column.label), ...currentRecords.map((record) => visibleColumns.map((column) => {
+      const value = record[column.key];
+      if (column.key === "date") return getDateValue(value);
+      if (column.key === "lrNo") return Array.isArray(value) ? value.join(", ") : value || "";
+      return value ?? "";
+    })), visibleColumns.map((column, index) => index === 0 ? "Total" : totals[column.key] ?? "")];
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    worksheet["!cols"] = visibleColumns.map((column) => ({ wch: Math.max(column.label.length + 2, 14) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    XLSX.writeFile(workbook, `transport-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const handleClearPayment = async () => {
     try {
       await api.put("/transports/mark-paid", {
@@ -472,20 +502,19 @@ export default function Reports() {
     }
   };
 
-  // Calculate statistics from the current records
-  const totalTrips = currentRecords.length;
-  const totalFreight = currentRecords.reduce(
-    (sum, r) => sum + (r.totalAmount || 0),
-    0,
+  const uploadedSummary = uploadedRecords.reduce(
+    (summary, record) => ({
+      totalFreight: summary.totalFreight + Number(record.totalAmount || 0),
+      totalAdvance: summary.totalAdvance + Number(record.advancePaid || 0),
+      totalFuel: summary.totalFuel + Number(record.fuelExpense || 0),
+    }),
+    { totalFreight: 0, totalAdvance: 0, totalFuel: 0 },
   );
-  const totalAdvance = currentRecords.reduce(
-    (sum, r) => sum + (r.advancePaid || 0),
-    0,
-  );
-  const totalFuel = currentRecords.reduce(
-    (sum, r) => sum + (r.fuelExpense || 0),
-    0,
-  );
+  const activeSummary = isFileMode ? uploadedSummary : reportSummary;
+  const totalTrips = currentTotal;
+  const totalFreight = activeSummary.totalFreight;
+  const totalAdvance = activeSummary.totalAdvance;
+  const totalFuel = activeSummary.totalFuel;
   const netBalance = totalFreight - totalAdvance - totalFuel;
   const statCards = [
     { label: "Trips", value: totalTrips, accent: "from-blue-600 to-cyan-500" },
@@ -504,6 +533,7 @@ export default function Reports() {
       value: `Rs. ${formatCurrency(netBalance)}`,
       accent: "from-violet-600 to-fuchsia-500",
     },
+    { label: "Fuel Expense", value: `Rs. ${formatCurrency(totalFuel)}`, accent: "from-rose-600 to-pink-500" },
   ];
 
   const sortIndicator = (field) => {
@@ -583,11 +613,11 @@ export default function Reports() {
             </button>
             <button
               type="button"
-              onClick={handleDownloadPdf}
+              onClick={handleDownloadXlsx}
               disabled={currentRecords.length === 0}
               className="rounded-2xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:-translate-y-0.5 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 transition-all duration-200 disabled:opacity-50"
             >
-              Download PDF
+              Download Excel
             </button>
             <details className="relative">
               <summary className="cursor-pointer list-none rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
@@ -633,7 +663,7 @@ export default function Reports() {
           </div>
         </div>
 
-        <section className="grid gap-5 md:grid-cols-2 py-5 xl:grid-cols-4">
+        <section className="grid gap-5 py-5 md:grid-cols-2 xl:grid-cols-5">
           {statCards.map((card) => (
             <div
               key={card.label}
@@ -705,15 +735,6 @@ export default function Reports() {
               <thead>
                 <tr>
                   <th className="px-4 py-3 text-left">Check</th>
-                  <th className="px-4 py-3 text-left">
-                    <button
-                      type="button"
-                      onClick={() => handleSort("date")}
-                      className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-200 dark:hover:text-blue-300"
-                    >
-                      Date <span>{sortIndicator("date")}</span>
-                    </button>
-                  </th>
                   {visibleColumns.map((column) => (
                     <th key={column.key} className="px-4 py-3 text-left">
                       {column.key === "date" ? (

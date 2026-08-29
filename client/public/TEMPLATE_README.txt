@@ -183,7 +183,7 @@ VERSION:
 
 Template Version: 1.0
 Updated: 2026-01-16
-Compatible with: Transport Management System v1.0+
+Compatible with: Suyog Transport Company v1.0+
 
 ================================================================================
 QUESTIONS?

@@ -6,8 +6,6 @@ const Sidebar = () => {
       <nav className="flex flex-col gap-4">
         <Link to="/">Dashboard</Link>
         <Link to="/add">Add Record</Link>
-        <Link to="/import">Import Records</Link>
-        <Link to="/records">All Records</Link>
         <Link to="/reports">Reports</Link>
       </nav>
     </div>

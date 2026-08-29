@@ -8,13 +8,45 @@ export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const decodeJwtRole = (token) => {
+    if (!token) return null;
+    try {
+      const base64Payload = token.split(".")[1];
+      if (!base64Payload) return null;
+      const normalized = base64Payload.replace(/-/g, "+").replace(/_/g, "/");
+      const json = decodeURIComponent(
+        atob(normalized)
+          .split("")
+          .map((char) => `%${"00" + char.charCodeAt(0).toString(16).slice(-2)}`)
+          .join(""),
+      );
+      return JSON.parse(json)?.role || null;
+    } catch {
+      return null;
+    }
+  };
+
   const hydrateUserFromResponse = (res) => {
     // support different response shapes
     const token = res?.data?.token || res?.token || null;
     const payloadUser = res?.data?.user || res?.user || null;
+    const roleFromToken = decodeJwtRole(token);
+    const finalRole =
+      payloadUser?.role ||
+      roleFromToken ||
+      localStorage.getItem("role") ||
+      "Staff";
+
     if (token) localStorage.setItem("token", token);
-    if (payloadUser?.role) localStorage.setItem("role", payloadUser.role);
-    if (token || payloadUser) setUser({ ...payloadUser, token });
+    if (finalRole) localStorage.setItem("role", finalRole);
+
+    if (token || payloadUser) {
+      setUser({
+        ...(payloadUser || {}),
+        role: finalRole,
+        token,
+      });
+    }
   };
 
   const login = async (email, password) => {
@@ -36,15 +68,14 @@ export default function AuthProvider({ children }) {
         import.meta.env.VITE_PROFILE_ENDPOINT || "/auth/me";
       const profile = await api.get(profileEndpoint);
       if (profile?.data) {
-        localStorage.setItem(
-          "role",
-          profile.data.role || localStorage.getItem("role") || "Staff",
-        );
-        setUser({ ...profile.data, token: localStorage.getItem("token") });
+        const nextRole = profile.data.role || decodeJwtRole(localStorage.getItem("token")) || localStorage.getItem("role") || "Staff";
+        localStorage.setItem("role", nextRole);
+        setUser({ ...profile.data, role: nextRole, token: localStorage.getItem("token") });
       }
     } catch (e) {
       // ignore - token is set and role may already be in localStorage
-      console.error(e);
+      const storedRole = localStorage.getItem("role") || decodeJwtRole(localStorage.getItem("token")) || "Staff";
+      setUser({ role: storedRole, token: localStorage.getItem("token") });
     }
 
     setLoading(false);
@@ -87,16 +118,19 @@ export default function AuthProvider({ children }) {
       try {
         const profile = await api.get("/auth/me");
         if (profile?.data) {
-          setUser({ ...profile.data, token });
-          if (profile.data.role)
-            localStorage.setItem("role", profile.data.role);
+          const nextRole = profile.data.role || decodeJwtRole(token) || role || "Staff";
+          setUser({ ...profile.data, role: nextRole, token });
+          if (nextRole) localStorage.setItem("role", nextRole);
         } else {
-          setUser({ token, role });
+          const fallbackRole = decodeJwtRole(token) || role || "Staff";
+          setUser({ token, role: fallbackRole });
+          localStorage.setItem("role", fallbackRole);
         }
       } catch (e) {
         // fallback to token + stored role
-        console.error(e);
-        setUser({ token, role });
+        const fallbackRole = decodeJwtRole(token) || role || "Staff";
+        setUser({ token, role: fallbackRole });
+        localStorage.setItem("role", fallbackRole);
       } finally {
         setLoading(false);
       }

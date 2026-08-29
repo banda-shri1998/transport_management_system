@@ -72,7 +72,7 @@ export default function Login() {
           <div className="flex h-full flex-col justify-between">
             <div>
               <div className="inline-flex rounded-2xl bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur">
-                Transport management suite
+                Suyog Transport Company
               </div>
               <h1 className="mt-8 text-4xl font-semibold tracking-tight">
                 Control records, reports, and collections from one place.

@@ -19,9 +19,21 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 
 const app = express();
 
+const allowedOrigins = [
+  "https://suyog-transport-co.vercel.app",
+  "http://localhost:5173",
+];
+
 app.use(
   cors({
-    origin: process.env.client_url,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
   }),
 );
 app.use(
