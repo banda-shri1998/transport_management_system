@@ -66,7 +66,7 @@ export default function Navbar() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
-              Suyog Transport Company
+              Transport Manager
             </p>
             <p className="truncate text-xs text-slate-500 dark:text-slate-400">
               Operations, reporting, and payment tracking
@@ -86,9 +86,6 @@ export default function Navbar() {
           </NavLink>
           <NavLink to="/party-statement" className={linkClass}>
             Party Statement
-          </NavLink>
-          <NavLink to="/help" className={linkClass}>
-            Help
           </NavLink>
           {user?.role && String(user.role).toLowerCase() === "admin" && (
             <NavLink to="/vehicles" className={linkClass}>
@@ -132,9 +129,6 @@ export default function Navbar() {
           </NavLink>
           <NavLink to="/party-statement" className={linkClass}>
             Party Statement
-          </NavLink>
-          <NavLink to="/help" className={linkClass}>
-            Help
           </NavLink>
           {user?.role && String(user.role).toLowerCase() === "admin" && (
             <NavLink to="/vehicles" className={linkClass}>

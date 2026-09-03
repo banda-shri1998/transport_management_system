@@ -6,6 +6,7 @@ import {
   deleteTransport,
   getTransportById,
   importTransports,
+  importTransportsFromFile,
   markRecordsPaid,
   searchTransports,
   getFilterOptions,
@@ -21,6 +22,7 @@ router.get("/vehicle-options", getVehicleOptions);
 router.get("/search", searchTransports);
 // Import records - admin only
 router.post("/import", isAdmin, importTransports);
+router.post("/import-file", isAdmin, importTransportsFromFile);
 
 // Mark paid - admin only
 router.put("/mark-paid", isAdmin, markRecordsPaid);

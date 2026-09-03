@@ -305,7 +305,7 @@ export default function TransportForm({
 
   const clearForm = () => {
     setForm({
-      date: "",
+      date: new Date().toISOString().slice(0, 10),
       transportName: "",
       vehicleNo: "",
       freightMemoNo: 0,
@@ -360,6 +360,17 @@ export default function TransportForm({
           </p>
         </div>
         <div className="grid gap-5 md:grid-cols-4">
+          <div>
+            <label className={labelClass}>Date</label>
+            <input
+              type="date"
+              name="date"
+              value={form.date || ""}
+              onChange={handleChange}
+            />
+            {renderError("date")}
+          </div>
+
           <div>
             <label className={labelClass}>Select Transporter</label>
             <select
@@ -451,13 +462,19 @@ export default function TransportForm({
               type="number"
               name="freightMemoNo"
               value={form.freightMemoNo}
+              placeholder="Enter freight memo no"
               onChange={handleChange}
             />
           </div>
 
           <div>
             <label className={labelClass}>LR No</label>
-            <input name="lrNo" value={form.lrNo} onChange={handleChange} />
+            <input
+              name="lrNo"
+              value={form.lrNo}
+              placeholder="12324"
+              onChange={handleChange}
+            />
           </div>
 
           <div>
@@ -473,11 +490,17 @@ export default function TransportForm({
 
           <div>
             <label className={labelClass}>Company</label>
-            <input
+            <select
               name="company"
               value={form.company || ""}
               onChange={handleChange}
-            />
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            >
+              <option value="">Select company</option>
+              <option value="UT">UT</option>
+              <option value="ZC">ZC</option>
+              <option value="JK">JK</option>
+            </select>
           </div>
         </div>
       </section>
@@ -497,6 +520,7 @@ export default function TransportForm({
             <input
               name="location"
               value={form.location}
+              placeholder="Enter location"
               onChange={handleChange}
             />
           </div>
@@ -507,6 +531,7 @@ export default function TransportForm({
               type="number"
               name="quantity"
               value={form.quantity}
+              placeholder="0"
               onChange={handleChange}
             />
             {renderError("quantity")}
@@ -518,6 +543,7 @@ export default function TransportForm({
               type="number"
               name="rate"
               value={form.rate}
+              placeholder="0"
               onChange={handleChange}
             />
             {renderError("rate")}
@@ -588,6 +614,7 @@ export default function TransportForm({
               type="number"
               name="fuelQuantity"
               value={form.fuelQuantity}
+              placeholder="0"
               onChange={handleChange}
             />
             {renderError("fuelQuantity")}
@@ -634,6 +661,7 @@ export default function TransportForm({
                   type="number"
                   name="payAmount"
                   value={form.payAmount || 0}
+                  placeholder="0"
                   onChange={handleChange}
                 />
               </div>
@@ -646,6 +674,7 @@ export default function TransportForm({
               type="number"
               name="advancePaid"
               value={form.advancePaid}
+              placeholder="0"
               onChange={handleChange}
             />
             {renderError("advancePaid")}

@@ -1,5 +1,9 @@
 import Transport from "../models/Transport.js";
 import Vehicle from "../models/Vehicle.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import * as XLSX from "xlsx";
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -503,6 +507,190 @@ export const importTransports = async (req, res) => {
     });
   } catch (error) {
     return res.status(400).json({ message: error.message });
+  }
+};
+
+export const importTransportsFromFile = async (req, res) => {
+  try {
+    const { filePath, sheetName } = req.body || {};
+    if (!filePath) {
+      return res.status(400).json({ message: "filePath is required" });
+    }
+
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+    const repoRoot = path.resolve(moduleDir, "..", "..");
+    const publicRoot = path.resolve(repoRoot, "client", "public");
+    const normalizedInput = String(filePath).trim();
+    const sanitizedInput = normalizedInput.replace(/^\/+/, "");
+    const requestedPath = path.isAbsolute(normalizedInput)
+      ? path.resolve(normalizedInput)
+      : path.resolve(publicRoot, sanitizedInput);
+
+    if (!requestedPath.startsWith(publicRoot)) {
+      return res
+        .status(403)
+        .json({ message: "Access to the specified file is not allowed" });
+    }
+
+    if (!fs.existsSync(requestedPath)) {
+      return res.status(404).json({ message: "Specified file not found" });
+    }
+
+    const xlsxLib = XLSX.default || XLSX;
+    const workbook = xlsxLib.readFile(requestedPath);
+    const actualSheetName = sheetName || workbook.SheetNames.find((name) => !String(name).toLowerCase().includes("chart")) || workbook.SheetNames[0];
+    const sheet = workbook.Sheets[actualSheetName];
+
+    if (!sheet) {
+      return res.status(400).json({ message: "Sheet not found in workbook" });
+    }
+
+    const rows = xlsxLib.utils.sheet_to_json(sheet, { defval: "", raw: false });
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: "No rows found in spreadsheet" });
+    }
+
+    const normalizeHeader = (value) =>
+      String(value || "")
+        .replace(/^\uFEFF/, "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "");
+
+    const aliasMap = {
+      transport: "transportname",
+      transporter: "transportname",
+      freightmemo: "freightmemono",
+      freightmemono: "freightmemono",
+      "freightmemo no": "freightmemono",
+      "freight memo no": "freightmemono",
+      lr: "lrno",
+      lrno: "lrno",
+      "lr no": "lrno",
+      vehicle: "vehicleno",
+      vehicleno: "vehicleno",
+      "vehicle no": "vehicleno",
+      party: "partyname",
+      partyname: "partyname",
+      "party name": "partyname",
+      qty: "quantity",
+      quantity: "quantity",
+      rate: "rate",
+      total: "totalamount",
+      totalamount: "totalamount",
+      "total amount": "totalamount",
+      advance: "advancepaid",
+      advancepaid: "advancepaid",
+      "advance paid": "advancepaid",
+      fuel: "fueltype",
+      fueltype: "fueltype",
+      "fuel type": "fueltype",
+      "fuel rate": "fuelrate",
+      fuelrate: "fuelrate",
+      "fuel qty": "fuelquantity",
+      fuelquantity: "fuelquantity",
+      "fuel quantity": "fuelquantity",
+      "fuel expense": "fuelexpense",
+      fuelexpense: "fuelexpense",
+      prevbalance: "previousclosingbalance",
+      "previous closing balance": "previousclosingbalance",
+      previousclosingbalance: "previousclosingbalance",
+      paymentdate: "paymentdate",
+      payamount: "payamount",
+      balance: "balance",
+      date: "date",
+      company: "company",
+      location: "location",
+      "solapurtolocation": "location",
+      "solapurtodestination": "location",
+      ut: "company",
+      zc: "company",
+      jk: "company",
+    };
+
+    const headerRowIndex = rows.findIndex((row) => {
+      const values = Object.values(row || {});
+      return values.some((value) => {
+        const normalized = normalizeHeader(value);
+        return [
+          "date",
+          "transportname",
+          "freightmemono",
+          "lrno",
+          "vehicleno",
+          "quantity",
+        ].includes(normalized);
+      });
+    });
+
+    const headerRow = headerRowIndex >= 0 ? rows[headerRowIndex] : {};
+    const headerEntries = Object.entries(headerRow).map(([rawKey, headerValue]) => ({
+      rawKey,
+      headerValue: String(headerValue || "").trim(),
+    }));
+
+    const mappedRecords = rows
+      .slice(Math.max(headerRowIndex + 1, 0))
+      .filter((row) => row && Object.values(row).some((value) => !isNullOrEmptyVal(value)))
+      .map((row) => {
+        const normalizedRow = {};
+        headerEntries.forEach(({ rawKey, headerValue }) => {
+          const normalizedHeader = normalizeHeader(headerValue);
+          const mappedKey = aliasMap[normalizedHeader] || normalizedHeader;
+          if (mappedKey && !isNullOrEmptyVal(row[rawKey])) {
+            normalizedRow[mappedKey] = row[rawKey];
+          }
+        });
+
+        const companyPos = headerEntries.findIndex(({ headerValue }) => {
+          const normalized = normalizeHeader(headerValue);
+          return ["company", "ut", "zc", "jk"].includes(normalized);
+        });
+        if (!normalizedRow.partyname && companyPos > 0) {
+          const candidateKey = headerEntries[companyPos - 1]?.rawKey;
+          if (candidateKey && !isNullOrEmptyVal(row[candidateKey])) {
+            normalizedRow.partyname = row[candidateKey];
+          }
+        }
+
+        if (!normalizedRow.company && companyPos >= 0) {
+          const companyKey = headerEntries[companyPos]?.rawKey;
+          if (companyKey) {
+            normalizedRow.company = row[companyKey] || "";
+          }
+        }
+
+        return {
+          date: normalizedRow.date || normalizedRow.paymentdate || "",
+          transportName:
+            normalizedRow.transportname || normalizedRow.transport || "",
+          freightMemoNo:
+            normalizedRow.freightmemono || normalizedRow.freightmemo || "",
+          lrNo: normalizedRow.lrno || "",
+          vehicleNo: normalizedRow.vehicleno || normalizedRow.vehicle || "",
+          partyName: normalizedRow.partyname || normalizedRow.party || "",
+          company: normalizedRow.company || "",
+          location: normalizedRow.location || "",
+          quantity: normalizedRow.quantity || normalizedRow.qty || 0,
+          rate: normalizedRow.rate || 0,
+          totalAmount: normalizedRow.totalamount || normalizedRow.total || 0,
+          advancePaid: normalizedRow.advancepaid || normalizedRow.advance || 0,
+          fuelType: normalizedRow.fueltype || "Diesel",
+          fuelRate: normalizedRow.fuelrate || 0,
+          fuelQuantity: normalizedRow.fuelquantity || 0,
+          fuelExpense: normalizedRow.fuelexpense || 0,
+          previousClosingBalance:
+            normalizedRow.previousclosingbalance || 0,
+          paymentDate: normalizedRow.paymentdate || null,
+          payAmount: normalizedRow.payamount || 0,
+          balance: normalizedRow.balance || 0,
+        };
+      });
+
+    req.body = { ...req.body, records: mappedRecords };
+    return importTransports(req, res);
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Import failed" });
   }
 };
 
