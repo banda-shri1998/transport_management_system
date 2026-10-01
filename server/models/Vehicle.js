@@ -8,6 +8,16 @@ const vehicleSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    ownerName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    maximumCapacity: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
     fuelType: {
       type: String,
       enum: ["Diesel", "CNG", "Petrol"],

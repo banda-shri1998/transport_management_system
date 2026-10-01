@@ -4,7 +4,29 @@ import Transport from "../models/Transport.js";
 export const listVehicles = async (req, res) => {
   try {
     const vehicles = await Vehicle.find().sort({ vehicleNo: 1 }).lean();
-    res.status(200).json(vehicles);
+    const vehicleNumbers = vehicles
+      .filter((vehicle) => !vehicle.ownerName)
+      .map((vehicle) => vehicle.vehicleNo);
+    const transportOwners = vehicleNumbers.length
+      ? await Transport.find({ vehicleNo: { $in: vehicleNumbers } })
+          .sort({ date: -1 })
+          .select("vehicleNo transportName")
+          .lean()
+      : [];
+    const ownerByVehicle = new Map();
+
+    transportOwners.forEach((record) => {
+      if (!ownerByVehicle.has(record.vehicleNo)) {
+        ownerByVehicle.set(record.vehicleNo, record.transportName);
+      }
+    });
+
+    const vehiclesWithOwners = vehicles.map((vehicle) => ({
+      ...vehicle,
+      ownerName:
+        vehicle.ownerName || ownerByVehicle.get(vehicle.vehicleNo) || "",
+    }));
+    res.status(200).json(vehiclesWithOwners);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -12,9 +34,17 @@ export const listVehicles = async (req, res) => {
 
 export const createVehicle = async (req, res) => {
   try {
-    const { vehicleNo, fuelType, fuelRate, notes } = req.body;
+    const { vehicleNo, ownerName, maximumCapacity, fuelType, fuelRate, notes } =
+      req.body;
     if (!vehicleNo)
       return res.status(400).json({ message: "vehicleNo is required" });
+
+    const parsedCapacity = Number(maximumCapacity || 0);
+    if (!Number.isFinite(parsedCapacity) || parsedCapacity < 0) {
+      return res
+        .status(400)
+        .json({ message: "maximumCapacity must be non-negative" });
+    }
 
     const existing = await Vehicle.findOne({
       vehicleNo: String(vehicleNo).trim().toUpperCase(),
@@ -24,6 +54,8 @@ export const createVehicle = async (req, res) => {
 
     const created = await Vehicle.create({
       vehicleNo: String(vehicleNo).trim().toUpperCase(),
+      ownerName: String(ownerName || "").trim(),
+      maximumCapacity: parsedCapacity,
       fuelType,
       fuelRate,
       notes,
@@ -49,6 +81,8 @@ export const seedVehiclesFromTransports = async (req, res) => {
       if (!seen.has(vehicleNo)) {
         seen.set(vehicleNo, {
           vehicleNo,
+          ownerName: record.transportName || "",
+          maximumCapacity: 0,
           fuelType: record.fuelType || "Diesel",
           fuelRate: Number(record.fuelRate) || 0,
           notes: "Seeded from transport records",
@@ -77,13 +111,22 @@ export const seedVehiclesFromTransports = async (req, res) => {
 export const updateVehicle = async (req, res) => {
   try {
     const { id } = req.params;
-    const { vehicleNo, fuelType, fuelRate, notes } = req.body;
+    const { vehicleNo, ownerName, maximumCapacity, fuelType, fuelRate, notes } =
+      req.body;
+    const parsedCapacity = Number(maximumCapacity || 0);
+    if (!Number.isFinite(parsedCapacity) || parsedCapacity < 0) {
+      return res
+        .status(400)
+        .json({ message: "maximumCapacity must be non-negative" });
+    }
     const updated = await Vehicle.findByIdAndUpdate(
       id,
       {
         vehicleNo: vehicleNo
           ? String(vehicleNo).trim().toUpperCase()
           : undefined,
+        ownerName: String(ownerName || "").trim(),
+        maximumCapacity: parsedCapacity,
         fuelType,
         fuelRate,
         notes,
