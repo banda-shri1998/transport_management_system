@@ -42,7 +42,11 @@ const normalizeLrNoForSearch = (value) => {
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isFinite(item) && Number.isInteger(item));
 
-  return values.length > 0 ? values : [Number(rawValue)].filter((item) => Number.isFinite(item) && Number.isInteger(item));
+  return values.length > 0
+    ? values
+    : [Number(rawValue)].filter(
+        (item) => Number.isFinite(item) && Number.isInteger(item),
+      );
 };
 
 router.get("/party/:name", async (req, res) => {

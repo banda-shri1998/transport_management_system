@@ -62,19 +62,6 @@ export default function Vehicles() {
     }
   };
 
-  const seedFromTransports = async () => {
-    try {
-      const res = await api.post("/vehicles/seed-from-transports");
-      if (res.data?.created >= 0) {
-        fetchVehicles();
-      }
-    } catch (err) {
-      setError(
-        err.response?.data?.message || err.message || "Unable to seed vehicles",
-      );
-    }
-  };
-
   useEffect(() => {
     fetchVehicles();
   }, []);
@@ -157,15 +144,6 @@ export default function Vehicles() {
 
         {isAdmin && (
           <>
-            <div className="mb-4 flex gap-2">
-              <button
-                type="button"
-                onClick={seedFromTransports}
-                className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm"
-              >
-                Seed from transport records
-              </button>
-            </div>
             <form
               onSubmit={form.id ? saveEdit : submit}
               className="mb-6 grid gap-3 md:grid-cols-6"

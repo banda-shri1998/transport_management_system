@@ -45,4 +45,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const requestUrl = error.config?.url || "";
+    const isAuthenticationRequest = /\/auth\/(login|register)\/?$/.test(
+      requestUrl,
+    );
+
+    if (error.response?.status === 401 && !isAuthenticationRequest) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+
+      if (window.location.pathname !== "/login") {
+        window.location.replace("/login");
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
+
 export default api;

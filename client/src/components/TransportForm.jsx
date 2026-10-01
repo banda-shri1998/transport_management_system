@@ -1,75 +1,10 @@
 import { useEffect, useState } from "react";
+import api from "../services/api";
 
 const FUEL_RATES = {
   Diesel: 98.4,
   CNG: 99,
 };
-
-const TRANSPORTER_VEHICLE_PAIRS = [
-  // Fallback static list (kept for backward compatibility)
-  { transportName: "Mahadev Kharade", vehicleNo: "MH12FC7196" },
-  { transportName: "Komal Bharat Mahanvar", vehicleNo: "MH13AX3963" },
-  { transportName: "Ujjwala Ramesh Chavare", vehicleNo: "MH12NX9725" },
-  { transportName: "Vinayak Gaikwad", vehicleNo: "MH14DM9767" },
-  { transportName: "Vinayak Gaikwad", vehicleNo: "MH13CU5095" },
-  { transportName: "Vinayak Gaikwad", vehicleNo: "MH13CU9849" },
-  { transportName: "Nilesh T. Solankar", vehicleNo: "MH24J9115" },
-  { transportName: "Archna Somnath Aglave", vehicleNo: "MH42T0683" },
-  { transportName: "Archna Somnath Aglave", vehicleNo: "MH04GK8389" },
-  { transportName: "Archna Somnath Aglave", vehicleNo: "MH13R4098" },
-  { transportName: "Sushant Gaikwad", vehicleNo: "MH13EP3099" },
-  { transportName: "New Sankalp Traders", vehicleNo: "MH45AF4242" },
-  { transportName: "New Sankalp Traders", vehicleNo: "MH13DQ2564" },
-  { transportName: "Rajkumar Dhavne", vehicleNo: "MH13DQ1998" },
-  { transportName: "Avinash Khendad", vehicleNo: "MH12QW7342" },
-  { transportName: "Jaysing Dhavne", vehicleNo: "MH42AQ6267" },
-  { transportName: "Datta Thombe", vehicleNo: "MH10Z3939" },
-  { transportName: "Shivaji Bhosale", vehicleNo: "MH12LT6777" },
-  { transportName: "Siddheswar Thorat", vehicleNo: "MH13DQ2351" },
-  { transportName: "Salim Mulani", vehicleNo: "MH12FC4491" },
-  { transportName: "Jyoti R. Rautrao", vehicleNo: "MH13DQ6323" },
-  { transportName: "Rahul Satpute", vehicleNo: "MH12MV7011" },
-  { transportName: "Satish Gandhure", vehicleNo: "MH13DQ5053" },
-  { transportName: "G. A. Pathan", vehicleNo: "MH13AX3385" },
-  { transportName: "G. A. Pathan", vehicleNo: "MH14CP7886" },
-  { transportName: "G. A. Pathan", vehicleNo: "MH36F0071" },
-  { transportName: "G. A. Pathan", vehicleNo: "MH12KP7348" },
-  { transportName: "Ambadas More", vehicleNo: "MH12FZ4202" },
-  { transportName: "Ambadas More", vehicleNo: "MH12HV4363" },
-  { transportName: "Ravi Jadhav (STC)", vehicleNo: "MH12TV6320" },
-  { transportName: "Santosh Gharbude (STC)", vehicleNo: "MH12TV6326" },
-  { transportName: "Prakash Bansode (STC)", vehicleNo: "MH12TV6327" },
-  { transportName: "Sachin Dede (STC)", vehicleNo: "MH12TV6328" },
-  { transportName: "Ramchandra Kante (STC)", vehicleNo: "MH13EP1183" },
-  { transportName: "Sharad Thorat (STC)", vehicleNo: "MH13EP1184" },
-  { transportName: "Shatrughn Kshirsagar (STC)", vehicleNo: "MH13EP1185" },
-  { transportName: "Satish Aglave (STC)", vehicleNo: "MH13EP1186" },
-  { transportName: "Laxman Chorghade (STC)", vehicleNo: "MH13EP1187" },
-  { transportName: "Shukat Jahagirdar (STC)", vehicleNo: "MH12SF1000" },
-  { transportName: "Shri Sai Roadlines", vehicleNo: "" },
-  { transportName: "Sanjay Limbaji Bhosale", vehicleNo: "" },
-  { transportName: "Imtiyaj Bagwan", vehicleNo: "" },
-  { transportName: "Anand B. Mane", vehicleNo: "" },
-  { transportName: "Jai Hanuman Transport", vehicleNo: "" },
-  { transportName: "Dhanjay Kure", vehicleNo: "" },
-  { transportName: "Mayur Gavhane", vehicleNo: "MH46AR0036" },
-  { transportName: "Dnyandev Saykar", vehicleNo: "MH16Q6379" },
-  { transportName: "Dnyandev Saykar", vehicleNo: "MH16AE1011" },
-  { transportName: "Dinesh Rankhambe", vehicleNo: "MH45AF3468" },
-  { transportName: "Kalyan Atkare", vehicleNo: "MH48CB4453" },
-  { transportName: "Kiran J. Salgar", vehicleNo: "MH45AF9405" },
-  { transportName: "Dilip Hanmant Raut", vehicleNo: "MH13DQ6242" },
-  { transportName: "Seema Sachin Gaikwad", vehicleNo: "MH13DQ9930" },
-  { transportName: "Bhaurao Shankarrao Kawathe", vehicleNo: "MH13EP6566" },
-  { transportName: "Sumit Sachin Kawathe", vehicleNo: "MH13R3666" },
-  { transportName: "Rohan Trimbak Kadam", vehicleNo: "MH20CT1919" },
-  { transportName: "Shashikant Balu Yadav", vehicleNo: "MH12NX3472" },
-  { transportName: "Sudhir Bandu Manjare", vehicleNo: "MH13DQ9943" },
-  { transportName: "Abhijit Chatke", vehicleNo: "MH10DT4375" },
-  { transportName: "Rajkumar Dhavane", vehicleNo: "MH17BD3386" },
-  { transportName: "Dadasaheb Navnath Dhere", vehicleNo: "MH45AF4848" },
-  { transportName: "Ashish Phalke", vehicleNo: "MH45AX1063" },
-];
 
 const sectionClass =
   "rounded-3xl border border-slate-200/80 bg-slate-50/70 p-6 dark:border-slate-800 dark:bg-slate-950/30";
@@ -93,68 +28,56 @@ export default function TransportForm({
   isEdit,
 }) {
   const [errors, setErrors] = useState({});
-  const [pairs, setPairs] = useState(TRANSPORTER_VEHICLE_PAIRS);
-  const [transportNameSuggestions, setTransportNameSuggestions] = useState(
-    Array.from(
-      new Set(
-        TRANSPORTER_VEHICLE_PAIRS.map((p) => p.transportName).filter(Boolean),
-      ),
-    ).sort(),
-  );
-  const [vehicleNoSuggestions, setVehicleNoSuggestions] = useState(
-    Array.from(
-      new Set(
-        TRANSPORTER_VEHICLE_PAIRS.map((p) => p.vehicleNo).filter(Boolean),
-      ),
-    ).sort(),
-  );
+  const [pairs, setPairs] = useState([]);
+  const [transportNameSuggestions, setTransportNameSuggestions] = useState([]);
+  const [vehicleNoSuggestions, setVehicleNoSuggestions] = useState([]);
 
   useEffect(() => {
-    // Fetch transport records to build up-to-date mapping of transportName <-> vehicleNo
-    // Also fall back to static list if server not available
     let mounted = true;
     (async () => {
-      try {
-        const api = (await import("../services/api")).default;
-        const res = await api.get("/transports");
-        if (!mounted) return;
-        const fromServer = Array.isArray(res.data)
-          ? res.data
-              .map((r) => ({
-                transportName: r.transportName || "",
-                vehicleNo: r.vehicleNo || "",
-              }))
-              .filter((p) => p.transportName || p.vehicleNo)
+      const [vehiclesResult, transportsResult] = await Promise.allSettled([
+        api.get("/Vehicles"),
+        api.get("/transports"),
+      ]);
+      if (!mounted) return;
+
+      const vehicleRecords =
+        vehiclesResult.status === "fulfilled" &&
+        Array.isArray(vehiclesResult.value.data)
+          ? vehiclesResult.value.data
           : [];
-        // merge static + server, dedupe by transportName|vehicleNo
-        const map = new Map();
-        [...TRANSPORTER_VEHICLE_PAIRS, ...fromServer].forEach((p) => {
-          const key = `${(p.transportName || "").trim()}|${(p.vehicleNo || "").trim()}`;
-          if (!map.has(key))
-            map.set(key, {
-              transportName: (p.transportName || "").trim(),
-              vehicleNo: (p.vehicleNo || "").trim(),
-            });
-        });
-        const merged = Array.from(map.values());
-        setPairs(merged);
-        setTransportNameSuggestions(
-          Array.from(
-            new Set(merged.map((m) => m.transportName).filter(Boolean)),
-          ).sort(),
-        );
-        setVehicleNoSuggestions(
-          Array.from(
-            new Set(merged.map((m) => m.vehicleNo).filter(Boolean)),
-          ).sort(),
-        );
-      } catch (err) {
-        // ignore — keep static lists
-        console.warn(
-          "Could not fetch transports for suggestions:",
-          err.message,
-        );
-      }
+      const transportRecords =
+        transportsResult.status === "fulfilled" &&
+        Array.isArray(transportsResult.value.data)
+          ? transportsResult.value.data
+          : [];
+      const pairMap = new Map();
+      const addPair = (transportName, vehicleNo) => {
+        const name = String(transportName || "").trim();
+        const number = String(vehicleNo || "").trim().toUpperCase();
+        if (!name || !number || pairMap.has(number)) return;
+        pairMap.set(number, { transportName: name, vehicleNo: number });
+      };
+
+      vehicleRecords.forEach((vehicle) =>
+        addPair(vehicle.ownerName, vehicle.vehicleNo),
+      );
+      transportRecords.forEach((record) =>
+        addPair(record.transportName, record.vehicleNo),
+      );
+
+      const allTransportNames = [
+        ...vehicleRecords.map((vehicle) => vehicle.ownerName),
+        ...transportRecords.map((record) => record.transportName),
+      ];
+      const merged = Array.from(pairMap.values());
+      setPairs(merged);
+      setTransportNameSuggestions(
+        Array.from(new Set(allTransportNames.map((name) => String(name || "").trim()).filter(Boolean))).sort(),
+      );
+      setVehicleNoSuggestions(
+        Array.from(new Set(merged.map((pair) => pair.vehicleNo))).sort(),
+      );
     })();
 
     return () => {
@@ -245,7 +168,9 @@ export default function TransportForm({
       "payAmount",
       "freightMemoNo",
     ].includes(name)
-      ? Number(value)
+      ? value === ""
+        ? ""
+        : Number(value)
       : value;
 
     if (name === "fuelType") {
@@ -305,25 +230,25 @@ export default function TransportForm({
 
   const clearForm = () => {
     setForm({
-      date: new Date().toISOString().slice(0, 10),
+      date: "",
       transportName: "",
       vehicleNo: "",
-      freightMemoNo: 0,
+      freightMemoNo: "",
       lrNo: "",
       partyName: "",
       company: "",
       location: "",
-      quantity: 0,
-      rate: 0,
+      quantity: "",
+      rate: "",
       totalAmount: 0,
-      fuelType: "Diesel",
-      fuelRate: FUEL_RATES.Diesel,
-      fuelQuantity: 0,
+      fuelType: "",
+      fuelRate: "",
+      fuelQuantity: "",
       fuelExpense: 0,
-      advancePaid: 0,
+      advancePaid: "",
       balance: 0,
       paymentDate: "",
-      payAmount: 0,
+      payAmount: "",
     });
     setErrors({});
   };
@@ -366,6 +291,7 @@ export default function TransportForm({
               type="date"
               name="date"
               value={form.date || ""}
+              placeholder="Select date"
               onChange={handleChange}
             />
             {renderError("date")}
@@ -542,7 +468,7 @@ export default function TransportForm({
               type="number"
               name="quantity"
               value={form.quantity}
-              placeholder="0"
+              placeholder="Enter quantity"
               onChange={handleChange}
             />
             {renderError("quantity")}
@@ -554,7 +480,7 @@ export default function TransportForm({
               type="number"
               name="rate"
               value={form.rate}
-              placeholder="0"
+              placeholder="Enter rate"
               onChange={handleChange}
             />
             {renderError("rate")}
@@ -564,6 +490,7 @@ export default function TransportForm({
             <label className={labelClass}>Total Amount</label>
             <input
               value={Number(form.totalAmount || 0).toFixed(2)}
+              placeholder="Calculated automatically"
               disabled
               className="cursor-not-allowed opacity-80"
             />
@@ -612,7 +539,8 @@ export default function TransportForm({
             <input
               type="number"
               name="fuelRate"
-              value={form.fuelRate}
+              value={form.fuelRate ?? ""}
+              placeholder="Select fuel type"
               readOnly
               className="cursor-not-allowed opacity-80"
             />
@@ -625,7 +553,7 @@ export default function TransportForm({
               type="number"
               name="fuelQuantity"
               value={form.fuelQuantity}
-              placeholder="0"
+              placeholder="Enter fuel quantity"
               onChange={handleChange}
             />
             {renderError("fuelQuantity")}
@@ -635,6 +563,7 @@ export default function TransportForm({
             <label className={labelClass}>Fuel Expense</label>
             <input
               value={Number(form.fuelExpense || 0).toFixed(2)}
+              placeholder="Calculated automatically"
               disabled
               className="cursor-not-allowed opacity-80"
             />
@@ -662,6 +591,7 @@ export default function TransportForm({
                   type="date"
                   name="paymentDate"
                   value={form.paymentDate || ""}
+                  placeholder="Select payment date"
                   onChange={handleChange}
                 />
               </div>
@@ -671,8 +601,8 @@ export default function TransportForm({
                 <input
                   type="number"
                   name="payAmount"
-                  value={form.payAmount || 0}
-                  placeholder="0"
+                  value={form.payAmount ?? ""}
+                  placeholder="Enter payment amount"
                   onChange={handleChange}
                 />
               </div>
@@ -685,7 +615,7 @@ export default function TransportForm({
               type="number"
               name="advancePaid"
               value={form.advancePaid}
-              placeholder="0"
+              placeholder="Enter advance amount"
               onChange={handleChange}
             />
             {renderError("advancePaid")}
@@ -695,6 +625,7 @@ export default function TransportForm({
             <label className={labelClass}>Balance</label>
             <input
               value={Number(form.balance || 0).toFixed(2)}
+              placeholder="Calculated automatically"
               disabled
               className="cursor-not-allowed opacity-80"
             />

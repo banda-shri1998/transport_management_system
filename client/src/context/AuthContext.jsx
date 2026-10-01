@@ -58,6 +58,7 @@ export default function AuthProvider({ children }) {
 
     if (!res?.data?.token && !res?.token) {
       throw new Error("No token received");
+      alert("No token received from server. Please try logging in again.")
     }
 
     hydrateUserFromResponse(res);
@@ -91,6 +92,7 @@ export default function AuthProvider({ children }) {
 
     if (!res?.data?.token && !res?.token) {
       throw new Error("No token received");
+      alert("No token received from server. Please try logging in again.");
     }
 
     hydrateUserFromResponse(res);

@@ -61,12 +61,10 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 border-b border-white/50 bg-white/70 backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/70">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 text-lg font-bold text-white shadow-lg shadow-blue-500/30">
-            TM
-          </div>
+          <img src="/logo.png" alt="Logo" className="h-11 w-11" />
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
-              Transport Manager
+              Suyog Transport Co.
             </p>
             <p className="truncate text-xs text-slate-500 dark:text-slate-400">
               Operations, reporting, and payment tracking
@@ -84,8 +82,8 @@ export default function Navbar() {
           <NavLink to="/reports" className={linkClass}>
             Reports
           </NavLink>
-          <NavLink to="/party-statement" className={linkClass}>
-            Party Statement
+          <NavLink to="/transporter" className={linkClass}>
+            Transporter
           </NavLink>
           {user?.role && String(user.role).toLowerCase() === "admin" && (
             <NavLink to="/vehicles" className={linkClass}>
@@ -127,8 +125,8 @@ export default function Navbar() {
           <NavLink to="/reports" className={linkClass}>
             Reports
           </NavLink>
-          <NavLink to="/party-statement" className={linkClass}>
-            Party Statement
+          <NavLink to="/transporter" className={linkClass}>
+            Transporter
           </NavLink>
           {user?.role && String(user.role).toLowerCase() === "admin" && (
             <NavLink to="/vehicles" className={linkClass}>

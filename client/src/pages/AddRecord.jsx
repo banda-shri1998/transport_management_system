@@ -56,25 +56,25 @@ export default function AddRecord() {
   const navigate = useNavigate();
 
   const initialFormState = {
-    date: new Date().toISOString().slice(0, 10),
+    date: "",
     transportName: "",
-    freightMemoNo: 0,
+    freightMemoNo: "",
     lrNo: "",
     vehicleNo: "",
     partyName: "",
     company: "",
     location: "",
-    quantity: 0,
-    rate: 0,
+    quantity: "",
+    rate: "",
     totalAmount: 0,
-    advancePaid: 0,
-    fuelType: "Diesel",
-    fuelRate: 90.6,
-    fuelQuantity: 0,
+    advancePaid: "",
+    fuelType: "",
+    fuelRate: "",
+    fuelQuantity: "",
     fuelExpense: 0,
     balance: 0,
     paymentDate: "",
-    payAmount: 0,
+    payAmount: "",
   };
 
   const [form, setForm] = useState(initialFormState);

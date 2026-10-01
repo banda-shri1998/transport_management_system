@@ -114,6 +114,7 @@ export const searchTransports = async (req, res) => {
       amountMin,
       amountMax,
       balanceStatus,
+      fuelType,
       partyName,
       transportName,
       company,
@@ -267,6 +268,11 @@ export const searchTransports = async (req, res) => {
       query.balance = { $gt: 0 };
     } else if (balanceStatus === "paid") {
       query.balance = { $lte: 0 };
+    }
+
+    if (["CNG", "Diesel"].includes(fuelType)) {
+      query.fuelType = fuelType;
+      query.fuelExpense = { $gt: 0 };
     }
 
     const [totalRecords, summaryResult] = await Promise.all([

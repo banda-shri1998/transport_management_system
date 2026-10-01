@@ -138,6 +138,8 @@ export default function FreightFilterPanel({
   setAmountMax,
   balanceStatus,
   setBalanceStatus,
+  fuelCategory,
+  setFuelCategory,
   search,
   setSearch,
 }) {
@@ -246,6 +248,10 @@ export default function FreightFilterPanel({
       label: balanceStatus === "due" ? "Balance due" : "Fully paid",
       clear: () => setBalanceStatus(""),
     },
+    fuelCategory && {
+      label: `Fuel: ${fuelCategory} (expense > 0)`,
+      clear: () => setFuelCategory(""),
+    },
   ].filter(Boolean);
 
   const resetAll = () => {
@@ -259,6 +265,7 @@ export default function FreightFilterPanel({
     setAmountMin("");
     setAmountMax("");
     setBalanceStatus("");
+    setFuelCategory("");
   };
 
   return (
@@ -402,6 +409,32 @@ export default function FreightFilterPanel({
                     }`}
                   >
                     {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">
+                Fuel expense (&gt; 0)
+              </label>
+              <div className="flex gap-1.5">
+                {[
+                  { value: "", label: "All" },
+                  { value: "CNG", label: "CNG" },
+                  { value: "Diesel", label: "Diesel" },
+                ].map((option) => (
+                  <button
+                    key={option.value || "all"}
+                    type="button"
+                    onClick={() => setFuelCategory(option.value)}
+                    className={`flex-1 rounded-md border py-2 text-xs font-medium transition-colors ${
+                      fuelCategory === option.value
+                        ? "border-amber-500 bg-amber-50 text-amber-800"
+                        : "border-slate-200 glass-panel text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    {option.label}
                   </button>
                 ))}
               </div>
