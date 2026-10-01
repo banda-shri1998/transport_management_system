@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import * as XLSX from "xlsx";
+import transformLrNoString from "../utils/transformLrNo.js";
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -53,20 +54,37 @@ const parseDate = (val) => {
 };
 
 const normalizeLrNo = (value) => {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => String(item).trim())
-      .filter((item) => !isNullOrEmptyVal(item));
-  }
+  if (!value) return [];
 
-  if (typeof value === "string") {
-    return value
-      .split("|")
-      .map((item) => item.trim())
-      .filter((item) => !isNullOrEmptyVal(item));
-  }
+  // Use the transformation utility which handles:
+  // - Slash format: "6521/22" -> [6521, 6522]
+  // - Pipe format: "6521|6522" -> [6521, 6522]
+  // - Single numbers: "6521" -> [6521]
+  // - Arrays: [6521, 6522] -> [6521, 6522]
+  const transformed = transformLrNoString(value);
 
-  return [];
+  // Ensure all elements are valid numbers and filter out nulls
+  return transformed
+    .map((item) => {
+      const num = Number(item);
+      return Number.isFinite(num) && Number.isInteger(num) ? num : null;
+    })
+    .filter((item) => item !== null);
+};
+
+const buildLrNoSearchValues = (value) => {
+  if (value === undefined || value === null || value === "") return [];
+
+  const normalized = String(value).trim();
+  if (!normalized) return [];
+
+  const transformed = normalizeLrNo(normalized);
+  if (transformed.length > 0) return transformed;
+
+  const asNumber = Number(normalized);
+  return Number.isFinite(asNumber) && Number.isInteger(asNumber)
+    ? [asNumber]
+    : [];
 };
 
 const normalizeFreightMemoNo = (value) => {
@@ -114,11 +132,14 @@ export const searchTransports = async (req, res) => {
 
     // Handle search parameter (for vehicle, LR no, or freight memo)
     if (search) {
-      const re = new RegExp(search.trim(), "i");
-      const asNumber = Number(search);
+      const trimmedSearch = String(search).trim();
+      const re = new RegExp(trimmedSearch, "i");
+      const asNumber = Number(trimmedSearch);
+      const lrNoValues = buildLrNoSearchValues(trimmedSearch);
+
       query.$or = [
         { vehicleNo: re },
-        { lrNo: { $in: [re] } },
+        ...(lrNoValues.length > 0 ? [{ lrNo: { $in: lrNoValues } }] : []),
         ...(Number.isFinite(asNumber) ? [{ freightMemoNo: asNumber }] : []),
       ];
     }
@@ -538,7 +559,12 @@ export const importTransportsFromFile = async (req, res) => {
 
     const xlsxLib = XLSX.default || XLSX;
     const workbook = xlsxLib.readFile(requestedPath);
-    const actualSheetName = sheetName || workbook.SheetNames.find((name) => !String(name).toLowerCase().includes("chart")) || workbook.SheetNames[0];
+    const actualSheetName =
+      sheetName ||
+      workbook.SheetNames.find(
+        (name) => !String(name).toLowerCase().includes("chart"),
+      ) ||
+      workbook.SheetNames[0];
     const sheet = workbook.Sheets[actualSheetName];
 
     if (!sheet) {
@@ -601,8 +627,8 @@ export const importTransportsFromFile = async (req, res) => {
       date: "date",
       company: "company",
       location: "location",
-      "solapurtolocation": "location",
-      "solapurtodestination": "location",
+      solapurtolocation: "location",
+      solapurtodestination: "location",
       ut: "company",
       zc: "company",
       jk: "company",
@@ -624,14 +650,19 @@ export const importTransportsFromFile = async (req, res) => {
     });
 
     const headerRow = headerRowIndex >= 0 ? rows[headerRowIndex] : {};
-    const headerEntries = Object.entries(headerRow).map(([rawKey, headerValue]) => ({
-      rawKey,
-      headerValue: String(headerValue || "").trim(),
-    }));
+    const headerEntries = Object.entries(headerRow).map(
+      ([rawKey, headerValue]) => ({
+        rawKey,
+        headerValue: String(headerValue || "").trim(),
+      }),
+    );
 
     const mappedRecords = rows
       .slice(Math.max(headerRowIndex + 1, 0))
-      .filter((row) => row && Object.values(row).some((value) => !isNullOrEmptyVal(value)))
+      .filter(
+        (row) =>
+          row && Object.values(row).some((value) => !isNullOrEmptyVal(value)),
+      )
       .map((row) => {
         const normalizedRow = {};
         headerEntries.forEach(({ rawKey, headerValue }) => {
@@ -679,8 +710,7 @@ export const importTransportsFromFile = async (req, res) => {
           fuelRate: normalizedRow.fuelrate || 0,
           fuelQuantity: normalizedRow.fuelquantity || 0,
           fuelExpense: normalizedRow.fuelexpense || 0,
-          previousClosingBalance:
-            normalizedRow.previousclosingbalance || 0,
+          previousClosingBalance: normalizedRow.previousclosingbalance || 0,
           paymentDate: normalizedRow.paymentdate || null,
           payAmount: normalizedRow.payamount || 0,
           balance: normalizedRow.balance || 0,

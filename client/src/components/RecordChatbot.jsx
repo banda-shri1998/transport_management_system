@@ -5,8 +5,6 @@ const money = (value) =>
   `Rs. ${new Intl.NumberFormat("en-IN").format(Number(value || 0))}`;
 const rupee = (value) =>
   `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(value || 0))}`;
-const date = (value) =>
-  value ? new Date(value).toLocaleDateString("en-IN") : "—";
 const shortDate = (value) => {
   if (!value) return "—";
   const dt = new Date(value);
@@ -65,31 +63,6 @@ const recordLine = (record) => {
   const party = `${record.partyName || "—"} (${record.location || "—"})`;
 
   return `• Memo #${record.freightMemoNo} | ${shortDate(record.date)} | ${transport} | ${party} | Total: ${rupee(record.totalAmount)} | Bal: ${rupee(record.balance)} | ${statusIcon}`;
-};
-
-const formatDateLedger = (records) => {
-  if (!records.length) return "";
-
-  const dates = [
-    ...new Set(records.map((record) => new Date(record.date))),
-  ].sort((a, b) => a.getTime() - b.getTime());
-
-  const start = shortDate(dates[0]);
-  const end = shortDate(dates[dates.length - 1]);
-  const pendingBalance = records.reduce(
-    (sum, record) => sum + Number(record.balance || 0),
-    0,
-  );
-
-  const lines = [
-    `📦 **Freight Ledger Update (${start} - ${end})**`,
-    "",
-    ...records.map((record) => recordLine(record)),
-    "",
-    `💳 **Summary:** ${records.length} Records | **Total Pending Balance:** ${rupee(pendingBalance)}`,
-  ];
-
-  return lines.join("\n");
 };
 
 const normalizeNumeric = (value) => String(value ?? "").replace(/[^0-9]/g, "");

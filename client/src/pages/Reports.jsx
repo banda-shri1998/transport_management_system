@@ -1,9 +1,6 @@
 import Navbar from "../components/Navbar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
-import PageContainer from "../components/PageContainer";
 import api from "../services/api";
 import FreightFilterPanel from "../components/reports/FreightFilterPanel";
 
@@ -76,14 +73,55 @@ const parseNumber = (value) => {
 };
 
 const normalizeLrNo = (value) => {
-  if (Array.isArray(value)) return value;
-  if (typeof value === "string") {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
     return value
-      .split(/[|,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item) && Number.isInteger(item));
   }
-  return [];
+
+  const rawValue = String(value).trim();
+  if (!rawValue) return [];
+
+  if (rawValue.includes("/")) {
+    const [base, ...suffixes] = rawValue.split("/").map((part) => part.trim());
+    const baseNum = Number(base);
+    if (!Number.isFinite(baseNum) || !Number.isInteger(baseNum)) return [];
+
+    const result = [baseNum];
+
+    for (const suffix of suffixes) {
+      if (!suffix) continue;
+      const suffixLen = String(suffix).length;
+      const modulus = Math.pow(10, suffixLen);
+      const targetSuffix = Number(suffix);
+      if (!Number.isFinite(targetSuffix)) continue;
+
+      let basePrefix = Math.floor(baseNum / modulus);
+      let candidate = basePrefix * modulus + targetSuffix;
+
+      if (candidate < baseNum) {
+        candidate = (basePrefix + 1) * modulus + targetSuffix;
+      }
+
+      result.push(candidate);
+    }
+
+    return result;
+  }
+
+  if (rawValue.includes("|")) {
+    return rawValue
+      .split("|")
+      .map((item) => Number(item.trim()))
+      .filter((item) => Number.isFinite(item) && Number.isInteger(item));
+  }
+
+  return rawValue
+    .split(/[|,]+/)
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item) && Number.isInteger(item));
 };
 
 const PAGE_SIZE = 25;
@@ -209,11 +247,13 @@ export default function Reports() {
       setRecords(res.data.records);
       setTotalPages(res.data.pagination.totalPages);
       setDbTotalRecords(res.data.pagination.totalRecords);
-      setReportSummary(res.data.summary || {
-        totalFreight: 0,
-        totalAdvance: 0,
-        totalFuel: 0,
-      });
+      setReportSummary(
+        res.data.summary || {
+          totalFreight: 0,
+          totalAdvance: 0,
+          totalFuel: 0,
+        },
+      );
     } catch (error) {
       console.error("Error fetching records:", error);
     }
@@ -439,49 +479,64 @@ export default function Reports() {
       ];
     });
   };
+  const buildFilterFilename = () => {
+    const parts = [];
+    if (search) parts.push(`search-${search.replace(/\s+/g, "-")}`);
+    if (dateFrom) parts.push(`from-${dateFrom}`);
+    if (dateTo) parts.push(`to-${dateTo}`);
+    if (transportName)
+      parts.push(`transport-${transportName.replace(/\s+/g, "-")}`);
+    if (partyName) parts.push(`party-${partyName.replace(/\s+/g, "-")}`);
+    if (balanceStatus) parts.push(`${balanceStatus.replace(/\s+/g, "-")}`);
 
-  const handleDownloadPdf = async () => {
-    if (!reportRef.current) return;
-
-    const canvas = await html2canvas(reportRef.current, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-    });
-
-    const pdf = new jsPDF({
-      orientation: "landscape",
-      unit: "pt",
-      format: "a4",
-    });
-    const imgData = canvas.toDataURL("image/png");
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const imgProps = pdf.getImageProperties(imgData);
-    const imgWidth = pageWidth - 40;
-    const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-
-    pdf.addImage(imgData, "PNG", 20, 20, imgWidth, imgHeight);
-    pdf.save(
-      `transport-report-${reportFileName ? reportFileName.replace(/\.[^/.]+$/, "") : new Date().toISOString().slice(0, 10)}.pdf`,
-    );
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filterPart = parts.length > 0 ? `${parts.join("_")}_` : "";
+    return `transport-report_${filterPart}${timestamp}.xlsx`
+      .replace(/_{2,}/g, "_")
+      .replace(/_\./, ".");
   };
 
   const handleDownloadXlsx = () => {
     const totals = currentRecords.reduce(
       (summary, record) => ({
-        quantity: summary.quantity + Number(record.quantity || 0), rate: summary.rate + Number(record.rate || 0), totalAmount: summary.totalAmount + Number(record.totalAmount || 0), advancePaid: summary.advancePaid + Number(record.advancePaid || 0), fuelExpense: summary.fuelExpense + Number(record.fuelExpense || 0), balance: summary.balance + Number(record.balance || 0),
-      }), { quantity: 0, rate: 0, totalAmount: 0, advancePaid: 0, fuelExpense: 0, balance: 0 },
+        quantity: summary.quantity + Number(record.quantity || 0),
+        rate: summary.rate + Number(record.rate || 0),
+        totalAmount: summary.totalAmount + Number(record.totalAmount || 0),
+        advancePaid: summary.advancePaid + Number(record.advancePaid || 0),
+        fuelExpense: summary.fuelExpense + Number(record.fuelExpense || 0),
+        balance: summary.balance + Number(record.balance || 0),
+      }),
+      {
+        quantity: 0,
+        rate: 0,
+        totalAmount: 0,
+        advancePaid: 0,
+        fuelExpense: 0,
+        balance: 0,
+      },
     );
-    const rows = [visibleColumns.map((column) => column.label), ...currentRecords.map((record) => visibleColumns.map((column) => {
-      const value = record[column.key];
-      if (column.key === "date") return getDateValue(value);
-      if (column.key === "lrNo") return Array.isArray(value) ? value.join(", ") : value || "";
-      return value ?? "";
-    })), visibleColumns.map((column, index) => index === 0 ? "Total" : totals[column.key] ?? "")];
+    const rows = [
+      visibleColumns.map((column) => column.label),
+      ...currentRecords.map((record) =>
+        visibleColumns.map((column) => {
+          const value = record[column.key];
+          if (column.key === "date") return getDateValue(value);
+          if (column.key === "lrNo")
+            return Array.isArray(value) ? value.join(", ") : value || "";
+          return value ?? "";
+        }),
+      ),
+      visibleColumns.map((column, index) =>
+        index === 0 ? "Total" : (totals[column.key] ?? ""),
+      ),
+    ];
     const worksheet = XLSX.utils.aoa_to_sheet(rows);
-    worksheet["!cols"] = visibleColumns.map((column) => ({ wch: Math.max(column.label.length + 2, 14) }));
+    worksheet["!cols"] = visibleColumns.map((column) => ({
+      wch: Math.max(column.label.length + 2, 14),
+    }));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-    XLSX.writeFile(workbook, `transport-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(workbook, buildFilterFilename());
   };
 
   const handleClearPayment = async () => {
@@ -533,7 +588,11 @@ export default function Reports() {
       value: `Rs. ${formatCurrency(netBalance)}`,
       accent: "from-violet-600 to-fuchsia-500",
     },
-    { label: "Fuel Expense", value: `Rs. ${formatCurrency(totalFuel)}`, accent: "from-rose-600 to-pink-500" },
+    {
+      label: "Fuel Expense",
+      value: `Rs. ${formatCurrency(totalFuel)}`,
+      accent: "from-rose-600 to-pink-500",
+    },
   ];
 
   const sortIndicator = (field) => {
@@ -544,10 +603,18 @@ export default function Reports() {
   return (
     <>
       <Navbar />
-      <PageContainer
-        title="Reports"
-        subtitle="Filter operational data and export a report snapshot from the current view."
-      >
+      <div className="mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/70 p-6 shadow-xl shadow-slate-200/70 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/75 dark:shadow-black/20 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              Reports
+            </h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Filter operational data and export a report snapshot from the
+              current view.
+            </p>
+          </div>
+        </div>
         <div className="space-y-8 glass-panel w-full overflow-auto">
           <FreightFilterPanel
             dateFrom={dateFrom}
@@ -597,20 +664,6 @@ export default function Reports() {
             >
               Clear All
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/20 hover:-translate-y-0.5 transition-all duration-200"
-            >
-              {uploading ? "Uploading..." : "Upload CSV Report"}
-            </button>
             <button
               type="button"
               onClick={handleDownloadXlsx}
@@ -643,186 +696,199 @@ export default function Reports() {
                 </p>
               </div>
             </details>
-            {uploadedRecords.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearUpload}
-                className="rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-red-500/20 hover:-translate-y-0.5 transition-all duration-200"
-              >
-                Clear Uploaded Report
-              </button>
-            )}
-            {uploadError && (
-              <p className="w-full text-sm text-red-600">{uploadError}</p>
-            )}
-            {reportFileName && (
-              <p className="w-full text-sm text-slate-500">
-                Viewing uploaded report: <strong>{reportFileName}</strong>
-              </p>
-            )}
           </div>
-        </div>
 
-        <section className="grid gap-5 py-5 md:grid-cols-2 xl:grid-cols-5">
-          {statCards.map((card) => (
-            <div
-              key={card.label}
-              className="cardDash overflow-hidden rounded-3xl p-[1px]"
-            >
+          <section className="grid gap-5 p-5 md:grid-cols-2 xl:grid-cols-5">
+            {statCards.map((card) => (
               <div
-                className={`rounded-[calc(1.5rem-1px)] bg-gradient-to-br ${card.accent} p-5 text-white`}
+                key={card.label}
+                className="cardDash overflow-hidden rounded-3xl p-[1px]"
               >
-                <p className="text-sm font-medium text-white/80">
-                  {card.label}
-                </p>
-                <p className="mt-3 text-2xl font-bold tracking-tight">
-                  {card.value}
-                </p>
+                <div
+                  className={`rounded-[calc(1.5rem-1px)] bg-gradient-to-br ${card.accent} p-5 text-white`}
+                >
+                  <p className="text-sm font-medium text-white/80">
+                    {card.label}
+                  </p>
+                  <p className="mt-3 text-2xl font-bold tracking-tight">
+                    {card.value}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </section>
+            ))}
+          </section>
 
-        <section ref={reportRef} className="glass-panel w-full overflow-auto">
-          <div className="border-b border-slate-200/80 px-6 py-4 dark:border-slate-800">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Filtered Records
-            </h2>
-            <div className="mb-4 font-semibold">
-              Selected Records: {selectedRecords.length}
-            </div>
-            <div className="ml-4 flex items-end gap-2">
-              <label className="flex flex-col text-sm">
-                <span className="mb-1 text-xs font-medium text-slate-500">
-                  Clear payment date
-                </span>
-                <input
-                  type="date"
-                  value={clearPaymentDate}
-                  onChange={(event) => setClearPaymentDate(event.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition duration-200 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </label>
-              <button
-                onClick={handleClearPayment}
-                disabled={selectedRecords.length === 0 || isFileMode}
-                className="rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 hover:-translate-y-0.5 disabled:opacity-50 transition-all duration-200"
-              >
-                Clear Selected Payments
-              </button>
-            </div>
-            <select
-              className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition duration-200 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ml-4"
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
-            >
-              <option value={10}>10 records / page</option>
-              <option value={25}>25 records / page</option>
-              <option value={50}>50 records / page</option>
-              <option value={100}>100 records / page</option>
-            </select>
+          <section ref={reportRef} className=" w-full overflow-auto">
+            <div className="border-b border-slate-200/80 px-6 py-4 dark:border-slate-800">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Filtered Records
+              </h2>
+              <div className="mb-4 font-semibold">
+                Selected Records: {selectedRecords.length}
+              </div>
+              <div className="ml-4 flex items-end justify-between">
+                <div className="align-start flex gap-2">
+                  <label className="flex flex-col text-sm">
+                    <span className="mb-1 text-xs font-medium text-slate-500">
+                      Clear payment date
+                    </span>
+                    <input
+                      type="date"
+                      value={clearPaymentDate}
+                      onChange={(event) =>
+                        setClearPaymentDate(event.target.value)
+                      }
+                      className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition duration-200 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </label>
+                  <button
+                    onClick={handleClearPayment}
+                    disabled={selectedRecords.length === 0 || isFileMode}
+                    className="rounded-2xl mt-5 mx-2 h-auto bg-gradient-to-r from-red-600 to-rose-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 hover:-translate-y-0.5 disabled:opacity-50 duration-200"
+                  >
+                    Clear Selected Payments
+                  </button>
+                </div>
+                <div>
+                  <select
+                    className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition duration-200 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ml-4"
+                    value={limit}
+                    onChange={(e) => {
+                      setLimit(Number(e.target.value));
+                      setPage(1);
+                    }}
+                  >
+                    <option value={10}>10 records / page</option>
+                    <option value={25}>25 records / page</option>
+                    <option value={50}>50 records / page</option>
+                    <option value={100}>100 records / page</option>
+                  </select>
+                </div>
+              </div>
 
-            <p>
-              Showing {startRecord}-{endRecord} of {currentTotal}
-            </p>
-          </div>
+              <p className="mt-5">
+                Showing {startRecord}-{endRecord} of {currentTotal}
+              </p>
+            </div>
 
-          <div className="overflow-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 text-left">Check</th>
-                  {visibleColumns.map((column) => (
-                    <th key={column.key} className="px-4 py-3 text-left">
-                      {column.key === "date" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleSort("date")}
-                          className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-200 dark:hover:text-blue-300"
-                        >
-                          {column.label} <span>{sortIndicator("date")}</span>
-                        </button>
-                      ) : column.key === "freightMemoNo" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleSort("freightMemoNo")}
-                          className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-200 dark:hover:text-blue-300"
-                        >
-                          {column.label}{" "}
-                          <span>{sortIndicator("freightMemoNo")}</span>
-                        </button>
-                      ) : (
-                        column.label
-                      )}
+            <div className="overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-3 text-left">
+                      <div className="flex items-center gap-2">
+                        {!isFileMode && (
+                          <input
+                            type="checkbox"
+                            checked={
+                              selectedRecords.length ===
+                                currentRecords.length &&
+                              currentRecords.length > 0
+                            }
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRecords(
+                                  currentRecords.map((r) => r._id),
+                                );
+                              } else {
+                                setSelectedRecords([]);
+                              }
+                            }}
+                            title="Select all records"
+                          />
+                        )}
+                        <span>Check</span>
+                      </div>
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {currentRecords.map((r, index) => (
-                  <tr key={r._id ?? index} className="border-t">
-                    <td className="px-4 py-3">
-                      {!isFileMode ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedRecords.includes(r._id)}
-                          onChange={() => handleCheckboxChange(r._id)}
-                        />
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </td>
                     {visibleColumns.map((column) => (
-                      <td
-                        key={column.key}
-                        className={`px-4 py-3 ${
-                          [
-                            "rate",
-                            "totalAmount",
-                            "advancePaid",
-                            "fuelExpense",
-                            "balance",
-                          ].includes(column.key)
-                            ? "text-right"
-                            : ""
-                        }`}
-                      >
-                        {getReportCellValue(r, column.key)}
-                      </td>
+                      <th key={column.key} className="px-4 py-3 text-left">
+                        {column.key === "date" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSort("date")}
+                            className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-200 dark:hover:text-blue-300"
+                          >
+                            {column.label} <span>{sortIndicator("date")}</span>
+                          </button>
+                        ) : column.key === "freightMemoNo" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSort("freightMemoNo")}
+                            className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-blue-600 dark:text-slate-200 dark:hover:text-blue-300"
+                          >
+                            {column.label}{" "}
+                            <span>{sortIndicator("freightMemoNo")}</span>
+                          </button>
+                        ) : (
+                          column.label
+                        )}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="flex items-center justify-between border-t border-slate-200/80 px-6 py-4 dark:border-slate-800">
-              <button
-                disabled={page === 1 || isFileMode}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-xl border border-slate-200 bg-white/90 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 transition-all duration-200"
-              >
-                Previous
-              </button>
+                </thead>
+                <tbody>
+                  {currentRecords.map((r, index) => (
+                    <tr key={r._id ?? index} className="border-t">
+                      <td className="px-4 py-3">
+                        {!isFileMode ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedRecords.includes(r._id)}
+                            onChange={() => handleCheckboxChange(r._id)}
+                          />
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      {visibleColumns.map((column) => (
+                        <td
+                          key={column.key}
+                          className={`px-4 py-3 ${
+                            [
+                              "rate",
+                              "totalAmount",
+                              "advancePaid",
+                              "fuelExpense",
+                              "balance",
+                            ].includes(column.key)
+                              ? "text-right"
+                              : ""
+                          }`}
+                        >
+                          {getReportCellValue(r, column.key)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="flex items-center justify-between border-t border-slate-200/80 px-6 py-4 dark:border-slate-800">
+                <button
+                  disabled={page === 1 || isFileMode}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-xl border border-slate-200 bg-white/90 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 transition-all duration-200"
+                >
+                  Previous
+                </button>
 
-              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                Page {isFileMode ? 1 : page} of {paginationTotalPages}
-              </span>
+                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  Page {isFileMode ? 1 : page} of {paginationTotalPages}
+                </span>
 
-              <button
-                disabled={page === paginationTotalPages || isFileMode}
-                className="rounded-xl border border-slate-200 bg-white/90 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 transition-all duration-200"
-                onClick={() =>
-                  setPage((p) => Math.min(paginationTotalPages, p + 1))
-                }
-              >
-                Next
-              </button>
+                <button
+                  disabled={page === paginationTotalPages || isFileMode}
+                  className="rounded-xl border border-slate-200 bg-white/90 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 transition-all duration-200"
+                  onClick={() =>
+                    setPage((p) => Math.min(paginationTotalPages, p + 1))
+                  }
+                >
+                  Next
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
-      </PageContainer>
+          </section>
+        </div>
+      </div>
     </>
   );
 }

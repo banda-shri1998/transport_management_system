@@ -67,6 +67,7 @@ export default function Dashboard() {
     totalBalance: 0,
   });
   const [showToast, setShowToast] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -74,7 +75,10 @@ export default function Dashboard() {
       const data = res.data;
 
       const totalTrips = data.length;
-      const totalRevenue = data.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+      const totalRevenue = data.reduce(
+        (sum, r) => sum + (r.totalAmount || 0),
+        0,
+      );
       const totalFuel = data.reduce((sum, r) => sum + (r.fuelExpense || 0), 0);
       const totalBalance = data.reduce(
         (sum, r) =>
@@ -117,7 +121,7 @@ export default function Dashboard() {
       const date = new Date(record.date);
       if (Number.isNaN(date.getTime())) return;
 
-      const key = `${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       const label = date.toLocaleDateString("en-IN", {
         month: "short",
         year: "2-digit",
@@ -139,21 +143,76 @@ export default function Dashboard() {
       current.balance += Number(record.balance || 0);
     });
 
-    return [...monthMap.values()].sort((a, b) => a.key.localeCompare(b.key)).slice(-6);
+    return [...monthMap.values()].sort((a, b) => b.key.localeCompare(a.key));
   }, [records]);
 
+  const availableMonths = useMemo(() => {
+    const months = monthlyChartData.map((item) => ({
+      key: item.key,
+      label: item.label,
+    }));
+    return months;
+  }, [monthlyChartData]);
+
+  const filteredRecords = useMemo(() => {
+    if (!selectedMonth) return records;
+    return records.filter((record) => {
+      const date = new Date(record.date);
+      if (Number.isNaN(date.getTime())) return false;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      return key === selectedMonth;
+    });
+  }, [records, selectedMonth]);
+
+  const filteredStats = useMemo(() => {
+    const totalTrips = filteredRecords.length;
+    const totalRevenue = filteredRecords.reduce(
+      (sum, r) => sum + (r.totalAmount || 0),
+      0,
+    );
+    const totalFuel = filteredRecords.reduce(
+      (sum, r) => sum + (r.fuelExpense || 0),
+      0,
+    );
+    const totalBalance = filteredRecords.reduce(
+      (sum, r) =>
+        sum +
+        ((r.totalAmount || 0) -
+          (r.advancePaid || 0) -
+          (r.fuelExpense || 0) -
+          (r.payAmount || 0)),
+      0,
+    );
+
+    return {
+      totalTrips,
+      totalRevenue,
+      totalFuel,
+      totalBalance,
+    };
+  }, [filteredRecords]);
+
+  const displayStats = selectedMonth ? filteredStats : stats;
+
+  const displayMonthlyChartData = useMemo(() => {
+    if (!selectedMonth) {
+      return monthlyChartData.slice(0, 6);
+    }
+    return monthlyChartData.filter((item) => item.key === selectedMonth);
+  }, [monthlyChartData, selectedMonth]);
+
   const fuelTypeData = useMemo(() => {
-    const totals = records.reduce((acc, record) => {
+    const totals = filteredRecords.reduce((acc, record) => {
       const key = record.fuelType || "Other";
       acc[key] = (acc[key] || 0) + Number(record.fuelExpense || 0);
       return acc;
     }, {});
 
     return Object.entries(totals).map(([name, value]) => ({ name, value }));
-  }, [records]);
+  }, [filteredRecords]);
 
   const topPartyData = useMemo(() => {
-    const totals = records.reduce((acc, record) => {
+    const totals = filteredRecords.reduce((acc, record) => {
       const key = record.partyName || "Unknown";
       acc[key] = (acc[key] || 0) + Number(record.totalAmount || 0);
       return acc;
@@ -163,7 +222,7 @@ export default function Dashboard() {
       .map(([name, revenue]) => ({ name, revenue }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
-  }, [records]);
+  }, [filteredRecords]);
 
   return (
     <>
@@ -180,11 +239,20 @@ export default function Dashboard() {
 
         <section className="mb-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {statCards.map((card) => (
-            <div key={card.key} className="cardDash overflow-hidden rounded-3xl p-[1px]">
-              <div className={`h-full rounded-[calc(1.5rem-1px)] bg-gradient-to-br ${card.accent} p-6 text-white`}>
-                <p className="text-sm font-medium text-white/80">{card.title}</p>
+            <div
+              key={card.key}
+              className="cardDash overflow-hidden rounded-3xl p-[1px]"
+            >
+              <div
+                className={`h-full rounded-[calc(1.5rem-1px)] bg-gradient-to-br ${card.accent} p-6 text-white`}
+              >
+                <p className="text-sm font-medium text-white/80">
+                  {card.title}
+                </p>
                 <p className="mt-4 text-3xl font-bold tracking-tight">
-                  {card.key === "totalTrips" ? stats[card.key] : formatCurrency(stats[card.key])}
+                  {card.key === "totalTrips"
+                    ? displayStats[card.key]
+                    : formatCurrency(displayStats[card.key])}
                 </p>
                 <p className="mt-3 text-sm text-white/80">{card.description}</p>
               </div>
@@ -192,24 +260,69 @@ export default function Dashboard() {
           ))}
         </section>
 
+        <section className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Filter by Month
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Select a month to view detailed records and statistics
+              </p>
+            </div>
+            <select
+              value={selectedMonth || ""}
+              onChange={(e) => setSelectedMonth(e.target.value || null)}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm outline-none transition duration-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            >
+              <option value="">All Months</option>
+              {availableMonths.map((month) => (
+                <option key={month.key} value={month.key}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+
         <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
           <div className="glass-panel p-6">
             <div className="mb-4">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Monthly Performance</h2>
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+                Monthly Performance
+              </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Revenue, fuel, and balance trend for the last six recorded months.
+                {selectedMonth
+                  ? "Selected month's revenue, fuel, and balance"
+                  : "Revenue, fuel, and balance trend for the last six recorded months."}
               </p>
             </div>
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" opacity={0.3} />
+                <BarChart data={displayMonthlyChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#cbd5e1"
+                    opacity={0.3}
+                  />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={chartCurrency} tickLine={false} axisLine={false} />
+                  <YAxis
+                    tickFormatter={chartCurrency}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip formatter={(value) => formatCurrency(value)} />
-                  <Bar dataKey="revenue" radius={[10, 10, 0, 0]} fill="#2563eb" />
+                  <Bar
+                    dataKey="revenue"
+                    radius={[10, 10, 0, 0]}
+                    fill="#2563eb"
+                  />
                   <Bar dataKey="fuel" radius={[10, 10, 0, 0]} fill="#14b8a6" />
-                  <Bar dataKey="balance" radius={[10, 10, 0, 0]} fill="#f59e0b" />
+                  <Bar
+                    dataKey="balance"
+                    radius={[10, 10, 0, 0]}
+                    fill="#f59e0b"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -217,7 +330,9 @@ export default function Dashboard() {
 
           <div className="glass-panel p-6">
             <div className="mb-4">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Fuel Mix</h2>
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+                Fuel Mix
+              </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Distribution of recorded fuel expense by fuel type.
               </p>
@@ -234,7 +349,10 @@ export default function Dashboard() {
                     paddingAngle={4}
                   >
                     {fuelTypeData.map((entry, index) => (
-                      <Cell key={entry.name} fill={fuelColors[index % fuelColors.length]} />
+                      <Cell
+                        key={entry.name}
+                        fill={fuelColors[index % fuelColors.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => formatCurrency(value)} />
@@ -243,15 +361,24 @@ export default function Dashboard() {
             </div>
             <div className="grid gap-2">
               {fuelTypeData.map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between rounded-2xl bg-slate-50/80 px-4 py-3 dark:bg-slate-950/40">
+                <div
+                  key={item.name}
+                  className="flex items-center justify-between rounded-2xl bg-slate-50/80 px-4 py-3 dark:bg-slate-950/40"
+                >
                   <div className="flex items-center gap-3">
                     <span
                       className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: fuelColors[index % fuelColors.length] }}
+                      style={{
+                        backgroundColor: fuelColors[index % fuelColors.length],
+                      }}
                     />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.name}</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {item.name}
+                    </span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-white">{formatCurrency(item.value)}</span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {formatCurrency(item.value)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -261,7 +388,9 @@ export default function Dashboard() {
         <section className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
           <div className="glass-panel p-6">
             <div className="mb-4">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Top Parties by Revenue</h2>
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+                Top Parties by Revenue
+              </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Highest gross freight contributors in the current dataset.
               </p>
@@ -294,7 +423,9 @@ export default function Dashboard() {
           </div>
 
           <div className="glass-panel p-6">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Health Check</h2>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+              Health Check
+            </h2>
             <div className="mt-5 space-y-4">
               <div className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-950/40">
                 <p className="metric-label">Collection pressure</p>
@@ -305,13 +436,19 @@ export default function Dashboard() {
               <div className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-950/40">
                 <p className="metric-label">Average revenue per trip</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
-                  {formatCurrency(stats.totalTrips ? stats.totalRevenue / stats.totalTrips : 0)}
+                  {formatCurrency(
+                    stats.totalTrips
+                      ? stats.totalRevenue / stats.totalTrips
+                      : 0,
+                  )}
                 </p>
               </div>
               <div className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-950/40">
                 <p className="metric-label">Average fuel per trip</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
-                  {formatCurrency(stats.totalTrips ? stats.totalFuel / stats.totalTrips : 0)}
+                  {formatCurrency(
+                    stats.totalTrips ? stats.totalFuel / stats.totalTrips : 0,
+                  )}
                 </p>
               </div>
             </div>

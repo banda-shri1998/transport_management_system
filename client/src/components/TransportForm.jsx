@@ -472,9 +472,20 @@ export default function TransportForm({
             <input
               name="lrNo"
               value={form.lrNo}
-              placeholder="12324"
+              placeholder="e.g., 6521/22 or 6521|6522"
               onChange={handleChange}
             />
+            <small
+              style={{
+                color: "#666",
+                fontSize: "0.8rem",
+                marginTop: "4px",
+                display: "block",
+              }}
+            >
+              Format: Use slash (6521/22) for range or pipe (6521|6522) for
+              multiple numbers
+            </small>
           </div>
 
           <div>
