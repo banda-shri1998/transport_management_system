@@ -50,6 +50,7 @@ export default function Reports() {
   const [sortBy, setSortBy] = useState("date");
   const [sortOrder, setSortOrder] = useState("desc");
   const [clearPaymentDate, setClearPaymentDate] = useState("");
+  const [exportError, setExportError] = useState("");
   const [selectedColumns, setSelectedColumns] = useState(
     REPORT_COLUMNS.map((column) => column.key),
   );
@@ -210,13 +211,18 @@ export default function Reports() {
   };
   const buildFilterFilename = () => {
     const parts = [];
-    if (search) parts.push(`search-${search.replace(/\s+/g, "-")}`);
+    const toFilenamePart = (value) => {
+      const text = Array.isArray(value) ? value.join("-") : String(value || "");
+      return text.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9_-]/g, "");
+    };
+
+    if (search) parts.push(`search-${toFilenamePart(search)}`);
     if (dateFrom) parts.push(`from-${dateFrom}`);
     if (dateTo) parts.push(`to-${dateTo}`);
-    if (transportName)
-      parts.push(`transport-${transportName.replace(/\s+/g, "-")}`);
-    if (partyName) parts.push(`party-${partyName.replace(/\s+/g, "-")}`);
-    if (balanceStatus) parts.push(`${balanceStatus.replace(/\s+/g, "-")}`);
+    if (transportName.length > 0)
+      parts.push(`transport-${toFilenamePart(transportName)}`);
+    if (partyName.length > 0) parts.push(`party-${toFilenamePart(partyName)}`);
+    if (balanceStatus) parts.push(toFilenamePart(balanceStatus));
 
     const timestamp = new Date().toISOString().slice(0, 10);
     const filterPart = parts.length > 0 ? `${parts.join("_")}_` : "";
@@ -226,7 +232,9 @@ export default function Reports() {
   };
 
   const handleDownloadXlsx = () => {
-    const totals = currentRecords.reduce(
+    try {
+      setExportError("");
+      const totals = currentRecords.reduce(
       (summary, record) => ({
         quantity: summary.quantity + Number(record.quantity || 0),
         rate: summary.rate + Number(record.rate || 0),
@@ -244,28 +252,32 @@ export default function Reports() {
         balance: 0,
       },
     );
-    const rows = [
-      visibleColumns.map((column) => column.label),
-      ...currentRecords.map((record) =>
-        visibleColumns.map((column) => {
-          const value = record[column.key];
-          if (column.key === "date") return getDateValue(value);
-          if (column.key === "lrNo")
-            return Array.isArray(value) ? value.join(", ") : value || "";
-          return value ?? "";
-        }),
-      ),
-      visibleColumns.map((column, index) =>
-        index === 0 ? "Total" : (totals[column.key] ?? ""),
-      ),
-    ];
-    const worksheet = XLSX.utils.aoa_to_sheet(rows);
-    worksheet["!cols"] = visibleColumns.map((column) => ({
-      wch: Math.max(column.label.length + 2, 14),
-    }));
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-    XLSX.writeFile(workbook, buildFilterFilename());
+      const rows = [
+        visibleColumns.map((column) => column.label),
+        ...currentRecords.map((record) =>
+          visibleColumns.map((column) => {
+            const value = record[column.key];
+            if (column.key === "date") return getDateValue(value);
+            if (column.key === "lrNo")
+              return Array.isArray(value) ? value.join(", ") : value || "";
+            return value ?? "";
+          }),
+        ),
+        visibleColumns.map((column, index) =>
+          index === 0 ? "Total" : (totals[column.key] ?? ""),
+        ),
+      ];
+      const worksheet = XLSX.utils.aoa_to_sheet(rows);
+      worksheet["!cols"] = visibleColumns.map((column) => ({
+        wch: Math.max(column.label.length + 2, 14),
+      }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+      XLSX.writeFile(workbook, buildFilterFilename());
+    } catch (error) {
+      console.error("Excel export failed:", error);
+      setExportError("Excel export failed. Please try again.");
+    }
   };
 
   const handleClearPayment = async () => {
@@ -328,7 +340,7 @@ export default function Reports() {
         subtitle="Filter operational data and export a report snapshot from the current view."
         className="max-w-none"
       >
-        <div className="min-w-0 space-y-8 glass-panel w-full">
+        <div className="relative z-20 min-w-0 space-y-8 glass-panel w-full">
           <FreightFilterPanel
             dateFrom={dateFrom}
             setDateFrom={setDateFrom}
@@ -412,10 +424,15 @@ export default function Reports() {
                 </p>
               </div>
             </details>
+            {exportError && (
+              <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">
+                {exportError}
+              </p>
+            )}
           </div>
         </div>
 
-        <section className="grid gap-5 py-5 md:grid-cols-2 xl:grid-cols-5">
+        <section className="relative z-0 grid gap-5 py-5 md:grid-cols-2 xl:grid-cols-5">
           {statCards.map((card) => (
             <div
               key={card.label}

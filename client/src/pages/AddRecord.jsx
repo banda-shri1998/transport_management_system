@@ -6,12 +6,58 @@ import PageContainer from "../components/PageContainer";
 import TransportForm from "../components/TransportForm";
 import api from "../services/api";
 
-const IMPORT_COLUMNS = [
-  "date", "transportName", "freightMemoNo", "lrNo", "vehicleNo", "partyName",
-  "company", "location", "quantity", "rate", "totalAmount", "advancePaid",
-  "fuelType", "fuelRate", "fuelQuantity", "fuelExpense", "previousClosingBalance",
-  "paymentDate", "payAmount", "balance",
+const REQUIRED_IMPORT_COLUMNS = [
+  "date",
+  "transportName",
+  "freightMemoNo",
+  "vehicleNo",
+  "partyName",
 ];
+
+const HEADER_ALIASES = {
+  date: "date",
+  transport: "transportName",
+  transporter: "transportName",
+  transportname: "transportName",
+  fmno: "freightMemoNo",
+  freightmemo: "freightMemoNo",
+  freightmemono: "freightMemoNo",
+  lr: "lrNo",
+  lrno: "lrNo",
+  vehicle: "vehicleNo",
+  vehicleno: "vehicleNo",
+  truckno: "vehicleNo",
+  party: "partyName",
+  partyname: "partyName",
+  company: "company",
+  ut: "company",
+  zc: "company",
+  jk: "company",
+  location: "location",
+  solapurto: "location",
+  solapurtolocation: "location",
+  solapurtodestination: "location",
+  qty: "quantity",
+  quantity: "quantity",
+  freight: "rate",
+  rate: "rate",
+  total: "totalAmount",
+  totalamount: "totalAmount",
+  advance: "advancePaid",
+  advancepaid: "advancePaid",
+  fuelrate: "fuelRate",
+  diesel: "fuelQuantity",
+  fuelquantity: "fuelQuantity",
+  fuelqty: "fuelQuantity",
+  fuelexpense: "fuelExpense",
+  cngbill: "cngBill",
+  fueltype: "fuelType",
+  previousclosingbalance: "previousClosingBalance",
+  prevbalance: "previousClosingBalance",
+  paymentdate: "paymentDate",
+  payamount: "payAmount",
+  balance: "balance",
+};
 
 const parseCsv = (text) => {
   const rows = [];
@@ -50,7 +96,66 @@ const parseCsv = (text) => {
 };
 
 const normalizeHeader = (value) =>
-  String(value || "").replace(/^\uFEFF/, "").trim().toLowerCase();
+  String(value || "")
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+const hasValue = (value) => {
+  const normalized = String(value ?? "").trim().replace(/,/g, "");
+  return normalized !== "" && normalized !== "-";
+};
+
+const findHeaderRow = (rows) =>
+  rows.findIndex((row) => {
+    const mappedColumns = row
+      .map((value) => HEADER_ALIASES[normalizeHeader(value)])
+      .filter(Boolean);
+    return (
+      mappedColumns.includes("date") &&
+      mappedColumns.filter((value, index, values) => values.indexOf(value) === index)
+        .length >= 3
+    );
+  });
+
+const mapImportRows = (rows) => {
+  const headerRowIndex = findHeaderRow(rows);
+  if (headerRowIndex < 0) return null;
+
+  const columns = rows[headerRowIndex].map(
+    (header) => HEADER_ALIASES[normalizeHeader(header)] || "",
+  );
+  const foundRequiredColumns = new Set(columns);
+  const missingColumns = REQUIRED_IMPORT_COLUMNS.filter(
+    (column) => !foundRequiredColumns.has(column),
+  );
+
+  if (missingColumns.length > 0) {
+    throw new Error(`Missing required columns: ${missingColumns.join(", ")}`);
+  }
+
+  const records = rows
+    .slice(headerRowIndex + 1)
+    .filter((row) => row.some(hasValue))
+    .map((row) => {
+      const record = {};
+      columns.forEach((column, index) => {
+        if (column && hasValue(row[index])) record[column] = row[index];
+      });
+
+      // The Suyog daily report stores CNG expenditure in a separate column.
+      if (hasValue(record.cngBill) && !hasValue(record.fuelExpense)) {
+        record.fuelExpense = record.cngBill;
+        record.fuelType = "CNG";
+      }
+
+      delete record.cngBill;
+      return record;
+    });
+
+  return records;
+};
 
 export default function AddRecord() {
   const navigate = useNavigate();
@@ -123,30 +228,34 @@ export default function AddRecord() {
     setImporting(true);
 
     try {
-      const rows = parseCsv(await file.text());
-      if (rows.length < 2) {
-        throw new Error("The selected CSV file is empty or missing data rows");
+      let records = null;
+
+      if (/\.xlsx?$/i.test(file.name)) {
+        const workbook = XLSX.read(await file.arrayBuffer(), {
+          type: "array",
+          raw: false,
+        });
+
+        for (const sheetName of workbook.SheetNames) {
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+            header: 1,
+            defval: "",
+            raw: false,
+          });
+          records = mapImportRows(rows);
+          if (records) break;
+        }
+      } else {
+        records = mapImportRows(parseCsv(await file.text()));
       }
 
-      const headers = rows[0].map(normalizeHeader);
-      const missingColumns = IMPORT_COLUMNS.filter(
-        (column) => !headers.includes(normalizeHeader(column)),
-      );
-      if (missingColumns.length > 0) {
-        throw new Error(`Missing required columns: ${missingColumns.join(", ")}`);
+      if (!records) {
+        throw new Error(
+          "No supported header row was found. Upload a CSV, XLS, or XLSX file with transport record columns.",
+        );
       }
 
-      const records = rows.slice(1).map((row) => {
-        const values = Object.fromEntries(
-          headers.map((header, index) => [header, row[index] ?? ""]),
-        );
-        return Object.fromEntries(
-          IMPORT_COLUMNS.map((column) => [
-            column,
-            values[normalizeHeader(column)],
-          ]),
-        );
-      });
+      if (records.length === 0) throw new Error("The selected file has no data rows");
 
       const response = await api.post("/transports/import", { records });
       setImportSummary(response.data);
@@ -185,7 +294,7 @@ export default function AddRecord() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv"
+              accept=".csv,.xls,.xlsx"
               onChange={handleImportFile}
               className="hidden"
             />

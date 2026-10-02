@@ -7,7 +7,10 @@ import * as XLSX from "xlsx";
 import transformLrNoString from "../utils/transformLrNo.js";
 
 const toNumber = (value, fallback = 0) => {
-  const parsed = Number(value);
+  if (value === null || value === undefined) return fallback;
+  const normalized = String(value).trim().replace(/,/g, "");
+  if (!normalized || normalized === "-") return fallback;
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
