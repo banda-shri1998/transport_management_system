@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, House, TriangleAlert } from "lucide-react";
+import { ArrowLeft, House, LogIn, TriangleAlert } from "lucide-react";
 
 export default function ErrorPage({ status = 404, title, message }) {
   const errorStatus = status;
   const isServerError = errorStatus >= 500;
+  const isUnauthorized = errorStatus === 401;
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
@@ -23,8 +24,16 @@ export default function ErrorPage({ status = 404, title, message }) {
             : "The page you are looking for may have moved or the address may be incorrect.")}
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link to="/" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
-            <House size={17} aria-hidden="true" /> Go to dashboard
+          <Link to={isUnauthorized ? "/login" : "/"} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700">
+            {isUnauthorized ? (
+              <>
+                <LogIn size={17} aria-hidden="true" /> Sign in
+              </>
+            ) : (
+              <>
+                <House size={17} aria-hidden="true" /> Go to dashboard
+              </>
+            )}
           </Link>
           <button type="button" onClick={() => window.history.back()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-white dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900">
             <ArrowLeft size={17} aria-hidden="true" /> Go back

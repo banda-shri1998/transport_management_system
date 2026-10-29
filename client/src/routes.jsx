@@ -18,14 +18,14 @@ export function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
 
   if (loading) return null;
-  return user ? children : <Navigate to="/login" replace />;
+  return user ? children : <Navigate to="/error/401" replace />;
 }
 
 export function StaffRoute({ children }) {
   const { user, loading } = useAuth();
 
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/error/401" replace />;
   const role = resolveRole(user);
   if (role !== "staff" && role !== "admin") {
     return <Navigate to="/error/403" replace />;
@@ -37,7 +37,7 @@ export function AdminRoute({ children }) {
   const { user, loading } = useAuth();
 
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/error/401" replace />;
   const role = resolveRole(user);
   if (role !== "admin") {
     return <Navigate to="/error/403" replace />;

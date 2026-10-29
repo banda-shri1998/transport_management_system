@@ -4,6 +4,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./config/db.js";
+import Cancelled from "./models/Cancelled.js";
 
 import authRoutes from "./routes/authRoutes.js";
 import transportRoutes from "./routes/transportRoutes.js";
@@ -56,6 +57,12 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     await connectDB();
+    const collectionExists = await Cancelled.db.db
+      .listCollections({ name: Cancelled.collection.collectionName })
+      .hasNext();
+    if (!collectionExists) {
+      await Cancelled.createCollection();
+    }
     app.listen(PORT, () => console.log(`Server running on ${PORT}`));
   } catch (error) {
     console.error("Server startup aborted.");

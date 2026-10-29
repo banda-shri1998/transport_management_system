@@ -336,7 +336,12 @@ export default function AddRecord() {
         {importSummary && (() => {
           const skipped = importSummary.duplicates || [];
           const duplicates = skipped.filter((item) => /duplicate/i.test(item.reason));
-          const failed = skipped.filter((item) => !/duplicate/i.test(item.reason));
+          const cancelled = skipped.filter((item) => /cancelled/i.test(item.reason));
+          const failed = skipped.filter(
+            (item) =>
+              !/duplicate/i.test(item.reason) &&
+              !/cancelled/i.test(item.reason),
+          );
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
               <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
@@ -346,6 +351,7 @@ export default function AddRecord() {
                     <div className="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-200">
                       <p>✔ Imported: <strong>{importSummary.count || 0}</strong></p>
                       <p>⚠ Duplicates: <strong>{duplicates.length}</strong></p>
+                      <p>🚫 Cancelled: <strong>{cancelled.length}</strong></p>
                       <p>❌ Failed: <strong>{failed.length}</strong></p>
                     </div>
                   </div>

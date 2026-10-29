@@ -92,6 +92,17 @@ export default function App() {
         />
 
         <Route
+          path="/error/401"
+          element={
+            <ErrorPage
+              status={401}
+              title="Sign in required"
+              message="Please sign in to access this page."
+            />
+          }
+        />
+
+        <Route
           path="/error/403"
           element={
             <ErrorPage

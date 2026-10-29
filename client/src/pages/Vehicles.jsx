@@ -298,7 +298,7 @@ export default function Vehicles() {
               </thead>
               <tbody>
                 {visibleVehicles.map((v) => (
-                  <tr key={v._id} className="border-b hover:bg-slate-50">
+                  <tr key={v._id} className="border-b hover:bg-slate-500">
                     <td className="px-3 py-2 font-mono">{v.vehicleNo}</td>
                     <td className="px-3 py-2">{v.ownerName || "-"}</td>
                     <td className="px-3 py-2 text-right">

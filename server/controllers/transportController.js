@@ -1,5 +1,6 @@
 import Transport from "../models/Transport.js";
 import Vehicle from "../models/Vehicle.js";
+import Cancelled from "../models/Cancelled.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -500,9 +501,70 @@ export const importTransports = async (req, res) => {
         normalizeFreightMemoNo(record.freightMemoNo),
       ),
     );
+    const memoKeys = uniqueEntries
+      .map(({ record }) => getDuplicateKey(record))
+      .filter((key) => key !== undefined);
+    const lrKeys = [
+      ...new Set(
+        uniqueEntries.flatMap(({ record }) =>
+          record.lrNo.map((lrNo) => String(lrNo)),
+        ),
+      ),
+    ];
+    const cancellationQuery = [];
+    if (memoKeys.length > 0) {
+      cancellationQuery.push({ freightMemoNo: { $in: memoKeys } });
+    }
+    if (lrKeys.length > 0) {
+      cancellationQuery.push({ lrNo: { $in: lrKeys } });
+    }
+    const cancellationRecords =
+      cancellationQuery.length > 0
+        ? await Cancelled.find({ $or: cancellationQuery }).lean()
+        : [];
+    const cancelledMemoKeys = new Set(
+      cancellationRecords.flatMap((item) =>
+        (Array.isArray(item.freightMemoNo) ? item.freightMemoNo : []).map(
+          (memoNo) => normalizeFreightMemoNo(memoNo),
+        ),
+      ),
+    );
+    const cancelledLrKeys = new Set(
+      cancellationRecords.flatMap((item) =>
+        (Array.isArray(item.lrNo) ? item.lrNo : []).flatMap((lrNo) =>
+          normalizeLrNo(lrNo),
+        ),
+      ),
+    );
+
+    const cancelledRecords = [];
     const dbDuplicates = [];
     const recordsToCreate = uniqueEntries.flatMap(({ record, index }) => {
       const key = getDuplicateKey(record);
+      const matchedLrNumbers = record.lrNo.filter((lrNo) =>
+        cancelledLrKeys.has(Number(lrNo)),
+      );
+      const isCancelled =
+        (key !== undefined && cancelledMemoKeys.has(key)) ||
+        matchedLrNumbers.length > 0;
+
+      if (isCancelled) {
+        const cancellationReasons = [];
+        if (key !== undefined && cancelledMemoKeys.has(key)) {
+          cancellationReasons.push(`Freight Memo No ${key}`);
+        }
+        if (matchedLrNumbers.length > 0) {
+          cancellationReasons.push(`LR No ${matchedLrNumbers.join(", ")}`);
+        }
+        cancelledRecords.push(
+          formatDuplicateRecord(
+            record,
+            index,
+            `Cancelled: ${cancellationReasons.join(" and ")}`,
+          ),
+        );
+        return [];
+      }
 
       if (key !== undefined && existingKeys.has(key)) {
         dbDuplicates.push(
@@ -522,17 +584,19 @@ export const importTransports = async (req, res) => {
     const skippedRecords = [
       ...invalidRecords,
       ...fileDuplicates,
+      ...cancelledRecords,
       ...dbDuplicates,
     ];
 
     return res.status(201).json({
       message:
         skippedRecords.length > 0
-          ? `${created.length} records imported, ${skippedRecords.length} skipped`
+          ? `${created.length} records imported, ${cancelledRecords.length} cancelled, ${skippedRecords.length} skipped`
           : `${created.length} records imported successfully`,
       count: created.length,
       total: req.body.records.length,
       skipped: skippedRecords.length,
+      cancelled: cancelledRecords.length,
       duplicates: skippedRecords,
     });
   } catch (error) {

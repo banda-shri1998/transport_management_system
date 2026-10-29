@@ -365,7 +365,7 @@ export default function Reports() {
             search={search}
             setSearch={setSearch}
           />
-          <div className="px-6 py-4 flex flex-wrap gap-3 items-center">
+          <div className="px-6 -mt-4 py-4 flex flex-wrap gap-3 items-center">
             <button
               onClick={handleApplyFilter}
               className="rounded-2xl bg-gradient-to-r from-slate-900 to-blue-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-500/20 hover:-translate-y-0.5 dark:from-white dark:to-slate-300 dark:text-slate-900 transition-all duration-200"
@@ -466,6 +466,9 @@ export default function Reports() {
               </p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
+              <p className="justify-self-end me-5 text-sm text-slate-500 dark:text-slate-400">
+                Showing {startRecord}-{endRecord} of {currentTotal}
+              </p>
               <label className="flex flex-col text-sm">
                 <span className="mb-1 text-xs font-medium text-slate-500">
                   Clear payment date
@@ -500,9 +503,6 @@ export default function Reports() {
                   <option value={100}>100 records / page</option>
                 </select>
               </label>
-              <p className="self-center text-sm text-slate-500 dark:text-slate-400">
-                Showing {startRecord}-{endRecord} of {currentTotal}
-              </p>
             </div>
           </div>
 
