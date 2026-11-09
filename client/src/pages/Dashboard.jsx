@@ -43,15 +43,21 @@ const statCards = [
   },
   {
     key: "totalRevenue",
-    title: "Total Revenue",
+    title: "Gross Freight Value",
     accent: "from-emerald-600 to-teal-500",
-    description: "Gross freight amount booked",
+    description: "Freight value recorded across transport trips",
   },
   {
     key: "totalFuel",
     title: "Fuel Expense",
     accent: "from-violet-600 to-fuchsia-500",
     description: "Cumulative fuel spend recorded",
+  },
+  {
+    key: "totalPaid",
+    title: "Paid to Transporters",
+    accent: "from-indigo-600 to-blue-500",
+    description: "Payments recorded against transporter balances",
   },
 ];
 
@@ -60,19 +66,25 @@ const fuelColors = ["#2563eb", "#14b8a6", "#f59e0b", "#a855f7"];
 export default function Dashboard() {
   const location = useLocation();
   const [records, setRecords] = useState([]);
+  const [paymentTransactions, setPaymentTransactions] = useState([]);
   const [stats, setStats] = useState({
     totalTrips: 0,
     totalRevenue: 0,
     totalFuel: 0,
     totalBalance: 0,
+    totalPaid: 0,
   });
   const [showToast, setShowToast] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      const res = await API.get("/transports");
-      const data = res.data;
+      const [transportResponse, paymentResponse] = await Promise.all([
+        API.get("/transports"),
+        API.get("/payments"),
+      ]);
+      const data = transportResponse.data;
+      const transactions = Array.isArray(paymentResponse.data) ? paymentResponse.data : [];
 
       const totalTrips = data.length;
       const totalRevenue = data.reduce(
@@ -81,21 +93,22 @@ export default function Dashboard() {
       );
       const totalFuel = data.reduce((sum, r) => sum + (r.fuelExpense || 0), 0);
       const totalBalance = data.reduce(
-        (sum, r) =>
-          sum +
-          ((r.totalAmount || 0) -
-            (r.advancePaid || 0) -
-            (r.fuelExpense || 0) -
-            (r.payAmount || 0)),
+        (sum, r) => sum + Number(r.balance || 0),
+        0,
+      );
+      const totalPaid = data.reduce(
+        (sum, r) => sum + Number(r.paymentAmount || r.payAmount || 0),
         0,
       );
 
       setRecords(data);
+      setPaymentTransactions(transactions);
       setStats({
         totalTrips,
         totalRevenue,
         totalFuel,
         totalBalance,
+        totalPaid,
       });
     };
 
@@ -134,6 +147,7 @@ export default function Dashboard() {
           revenue: 0,
           fuel: 0,
           balance: 0,
+          paid: 0,
         });
       }
 
@@ -143,8 +157,24 @@ export default function Dashboard() {
       current.balance += Number(record.balance || 0);
     });
 
+    const ledgerTransportIds = new Set(paymentTransactions.map((payment) => String(payment.transport)));
+    const addPaymentToMonth = (paymentDate, amount) => {
+      const date = new Date(paymentDate);
+      if (Number.isNaN(date.getTime())) return;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const label = date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+      if (!monthMap.has(key)) monthMap.set(key, { key, label, revenue: 0, fuel: 0, balance: 0, paid: 0 });
+      monthMap.get(key).paid += Number(amount || 0);
+    };
+    paymentTransactions.forEach((payment) => addPaymentToMonth(payment.paymentDate, payment.amount));
+    records.forEach((record) => {
+      if (record.paymentDate && !ledgerTransportIds.has(String(record._id))) {
+        addPaymentToMonth(record.paymentDate, record.paymentAmount || record.payAmount || 0);
+      }
+    });
+
     return [...monthMap.values()].sort((a, b) => b.key.localeCompare(a.key));
-  }, [records]);
+  }, [records, paymentTransactions]);
 
   const availableMonths = useMemo(() => {
     const months = monthlyChartData.map((item) => ({
@@ -175,12 +205,11 @@ export default function Dashboard() {
       0,
     );
     const totalBalance = filteredRecords.reduce(
-      (sum, r) =>
-        sum +
-        ((r.totalAmount || 0) -
-          (r.advancePaid || 0) -
-          (r.fuelExpense || 0) -
-          (r.payAmount || 0)),
+      (sum, r) => sum + Number(r.balance || 0),
+      0,
+    );
+    const totalPaid = filteredRecords.reduce(
+      (sum, r) => sum + Number(r.paymentAmount || r.payAmount || 0),
       0,
     );
 
@@ -189,6 +218,7 @@ export default function Dashboard() {
       totalRevenue,
       totalFuel,
       totalBalance,
+      totalPaid,
     };
   }, [filteredRecords]);
 
@@ -213,7 +243,7 @@ export default function Dashboard() {
 
   const topPartyData = useMemo(() => {
     const totals = filteredRecords.reduce((acc, record) => {
-      const key = record.partyName || "Unknown";
+      const key = record.transportName || "Unknown transporter";
       acc[key] = (acc[key] || 0) + Number(record.totalAmount || 0);
       return acc;
     }, {});
@@ -229,7 +259,7 @@ export default function Dashboard() {
       <Navbar />
       <PageContainer
         title="Dashboard"
-        subtitle="Operational overview for transport records, collections, and cost performance."
+        subtitle="Operational overview for freight, transporter payments, outstanding, and recorded fuel cost."
       >
         {showToast && (
           <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-900/80 dark:bg-emerald-950/50 dark:text-emerald-300">
@@ -237,7 +267,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <section className="mb-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mb-8 grid gap-6 md:grid-cols-2 xl:grid-cols-5">
           {statCards.map((card) => (
             <div
               key={card.key}
@@ -293,8 +323,8 @@ export default function Dashboard() {
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {selectedMonth
-                  ? "Selected month's revenue, fuel, and balance"
-                  : "Revenue, fuel, and balance trend for the last six recorded months."}
+                  ? "Selected month's freight value, fuel, payments, and outstanding"
+                  : "Freight value, recorded fuel expense, payments, and outstanding by trip month."}
               </p>
             </div>
             <div className="h-[320px]">
@@ -318,6 +348,7 @@ export default function Dashboard() {
                     fill="#2563eb"
                   />
                   <Bar dataKey="fuel" radius={[10, 10, 0, 0]} fill="#14b8a6" />
+                  <Bar dataKey="paid" radius={[10, 10, 0, 0]} fill="#6366f1" />
                   <Bar
                     dataKey="balance"
                     radius={[10, 10, 0, 0]}
@@ -389,10 +420,10 @@ export default function Dashboard() {
           <div className="glass-panel p-6">
             <div className="mb-4">
               <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-                Top Parties by Revenue
+                Top Transporters by Freight Value
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Highest gross freight contributors in the current dataset.
+                Highest gross freight values by transporter in the current dataset.
               </p>
             </div>
             <div className="space-y-4">
@@ -428,17 +459,17 @@ export default function Dashboard() {
             </h2>
             <div className="mt-5 space-y-4">
               <div className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-950/40">
-                <p className="metric-label">Collection pressure</p>
+                <p className="metric-label">Outstanding to transporters</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
-                  {stats.totalBalance > 0 ? "Attention needed" : "Balanced"}
+                  {displayStats.totalBalance > 0 ? "Attention needed" : "Balanced"}
                 </p>
               </div>
               <div className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-950/40">
-                <p className="metric-label">Average revenue per trip</p>
+                <p className="metric-label">Average freight value per trip</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
                   {formatCurrency(
-                    stats.totalTrips
-                      ? stats.totalRevenue / stats.totalTrips
+                    displayStats.totalTrips
+                      ? displayStats.totalRevenue / displayStats.totalTrips
                       : 0,
                   )}
                 </p>
@@ -447,7 +478,7 @@ export default function Dashboard() {
                 <p className="metric-label">Average fuel per trip</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
                   {formatCurrency(
-                    stats.totalTrips ? stats.totalFuel / stats.totalTrips : 0,
+                    displayStats.totalTrips ? displayStats.totalFuel / displayStats.totalTrips : 0,
                   )}
                 </p>
               </div>

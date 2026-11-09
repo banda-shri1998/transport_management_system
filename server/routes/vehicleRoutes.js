@@ -6,6 +6,7 @@ import {
   updateVehicle,
   deleteVehicle,
   seedVehiclesFromTransports,
+  getVehiclePerformance,
 } from "../controllers/vehicleController.js";
 
 const router = express.Router();
@@ -14,6 +15,7 @@ router.use(protect);
 
 // List vehicles (any authenticated user)
 router.get("/", listVehicles);
+router.get("/performance", getVehiclePerformance);
 
 // Admin-only management
 router.post("/seed-from-transports", isAdmin, seedVehiclesFromTransports);

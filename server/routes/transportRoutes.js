@@ -11,6 +11,7 @@ import {
   searchTransports,
   getFilterOptions,
   getVehicleOptions,
+  validateTransportImport,
 } from "../controllers/transportController.js";
 import { protect, isAdmin } from "../middlewares/authmiddleware.js";
 
@@ -21,6 +22,7 @@ router.get("/filter-options", getFilterOptions);
 router.get("/vehicle-options", getVehicleOptions);
 router.get("/search", searchTransports);
 // Import records - admin only
+router.post("/import/validate", isAdmin, validateTransportImport);
 router.post("/import", isAdmin, importTransports);
 router.post("/import-file", isAdmin, importTransportsFromFile);
 

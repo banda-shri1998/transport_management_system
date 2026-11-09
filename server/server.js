@@ -11,6 +11,7 @@ import transportRoutes from "./routes/transportRoutes.js";
 import vehicleRoutes from "./routes/vehicleRoutes.js";
 import partyRoutes from "./routes/partyRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,6 +48,7 @@ app.use("/api/transports", transportRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/parties", partyRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/payments", paymentRoutes);
 
 app.get("/", (_, res) => res.send("Transport API running"));
 app.use(notFound);

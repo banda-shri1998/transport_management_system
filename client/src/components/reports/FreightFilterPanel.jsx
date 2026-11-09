@@ -181,43 +181,6 @@ export default function FreightFilterPanel({
     [filterOptions],
   );
 
-  // const filtered = useMemo(() => {
-  //   return RECORDS.filter((r) => {
-  //     if (search) {
-  //       const q = search.toLowerCase();
-  //       const hit =
-  //         String(r.freightMemoNo).includes(q) ||
-  //         r.vehicleNo.toLowerCase().includes(q) ||
-  //         r.lrNo.some((l) => l.toLowerCase().includes(q));
-  //       if (!hit) return false;
-  //     }
-  //     if (dateFrom && r.date < dateFrom) return false;
-  //     if (dateTo && r.date > dateTo) return false;
-  //     if (transportName && r.transportName !== transportName) return false;
-  //     if (partyName && r.partyName !== partyName) return false;
-  //     if (company && r.company !== company) return false;
-  //     if (location && r.location !== location) return false;
-  //     if (amountMin && r.totalAmount < Number(amountMin)) return false;
-  //     if (amountMax && r.totalAmount > Number(amountMax)) return false;
-  //     if (balanceStatus === "due" && r.balance <= 0) return false;
-  //     if (balanceStatus === "paid" && r.balance > 0) return false;
-  //     if (missingBank && r.bankAccount) return false;
-  //     return true;
-  //   });
-  // }, [
-  //   search,
-  //   dateFrom,
-  //   dateTo,
-  //   transportName,
-  //   partyName,
-  //   company,
-  //   location,
-  //   amountMin,
-  //   amountMax,
-  //   balanceStatus,
-  //   missingBank,
-  // ]);
-
   const activeChips = [
     search && { label: `"${search}"`, clear: () => setSearch("") },
     dateFrom && { label: `From ${dateFrom}`, clear: () => setDateFrom("") },

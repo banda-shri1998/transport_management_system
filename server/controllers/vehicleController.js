@@ -32,10 +32,28 @@ export const listVehicles = async (req, res) => {
   }
 };
 
+export const getVehiclePerformance = async (_req, res) => {
+  try {
+    const performance = await Transport.aggregate([
+      { $group: {
+        _id: "$vehicleNo",
+        totalTrips: { $sum: 1 },
+        totalQuantity: { $sum: { $ifNull: ["$quantity", 0] } },
+        totalFreight: { $sum: { $ifNull: ["$totalAmount", 0] } },
+        totalFuelExpense: { $sum: { $ifNull: ["$fuelExpense", 0] } },
+        totalOutstanding: { $sum: { $ifNull: ["$balance", 0] } },
+      } },
+      { $project: { vehicleNo: "$_id", _id: 0, totalTrips: 1, totalQuantity: 1, totalFreight: 1, totalFuelExpense: 1, totalOutstanding: 1 } },
+    ]);
+    res.json(performance);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const createVehicle = async (req, res) => {
   try {
-    const { vehicleNo, ownerName, maximumCapacity, fuelType, fuelRate, notes } =
-      req.body;
+    const { vehicleNo, ownerName, maximumCapacity, fuelType, fuelRate, notes, vehicleType, insuranceExpiry, pucExpiry, fitnessExpiry, status } = req.body;
     if (!vehicleNo)
       return res.status(400).json({ message: "vehicleNo is required" });
 
@@ -59,6 +77,11 @@ export const createVehicle = async (req, res) => {
       fuelType,
       fuelRate,
       notes,
+      vehicleType,
+      insuranceExpiry: insuranceExpiry || null,
+      pucExpiry: pucExpiry || null,
+      fitnessExpiry: fitnessExpiry || null,
+      status,
     });
     res.status(201).json(created);
   } catch (error) {
@@ -111,8 +134,7 @@ export const seedVehiclesFromTransports = async (req, res) => {
 export const updateVehicle = async (req, res) => {
   try {
     const { id } = req.params;
-    const { vehicleNo, ownerName, maximumCapacity, fuelType, fuelRate, notes } =
-      req.body;
+    const { vehicleNo, ownerName, maximumCapacity, fuelType, fuelRate, notes, vehicleType, insuranceExpiry, pucExpiry, fitnessExpiry, status } = req.body;
     const parsedCapacity = Number(maximumCapacity || 0);
     if (!Number.isFinite(parsedCapacity) || parsedCapacity < 0) {
       return res
@@ -130,6 +152,11 @@ export const updateVehicle = async (req, res) => {
         fuelType,
         fuelRate,
         notes,
+        vehicleType,
+        insuranceExpiry: insuranceExpiry || null,
+        pucExpiry: pucExpiry || null,
+        fitnessExpiry: fitnessExpiry || null,
+        status,
       },
       { new: true },
     );

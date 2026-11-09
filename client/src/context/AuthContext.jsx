@@ -50,15 +50,10 @@ export default function AuthProvider({ children }) {
   };
 
   const login = async (email, password) => {
-    const res = await api
-      .post("/auth/login", { email, password })
-      .catch((e) => {
-        throw e;
-      });
+    const res = await api.post("/auth/login", { email, password });
 
     if (!res?.data?.token && !res?.token) {
       throw new Error("No token received");
-      alert("No token received from server. Please try logging in again.")
     }
 
     hydrateUserFromResponse(res);
@@ -73,7 +68,7 @@ export default function AuthProvider({ children }) {
         localStorage.setItem("role", nextRole);
         setUser({ ...profile.data, role: nextRole, token: localStorage.getItem("token") });
       }
-    } catch (e) {
+    } catch {
       // ignore - token is set and role may already be in localStorage
       const storedRole = localStorage.getItem("role") || decodeJwtRole(localStorage.getItem("token")) || "Staff";
       setUser({ role: storedRole, token: localStorage.getItem("token") });
@@ -92,7 +87,6 @@ export default function AuthProvider({ children }) {
 
     if (!res?.data?.token && !res?.token) {
       throw new Error("No token received");
-      alert("No token received from server. Please try logging in again.");
     }
 
     hydrateUserFromResponse(res);
@@ -129,7 +123,7 @@ export default function AuthProvider({ children }) {
           setUser({ token, role: fallbackRole });
           localStorage.setItem("role", fallbackRole);
         }
-      } catch (e) {
+      } catch {
         // fallback to token + stored role
         const fallbackRole = decodeJwtRole(token) || role || "Staff";
         setUser({ token, role: fallbackRole });

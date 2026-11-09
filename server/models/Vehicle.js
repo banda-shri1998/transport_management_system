@@ -13,6 +13,11 @@ const vehicleSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    vehicleType: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     maximumCapacity: {
       type: Number,
       min: 0,
@@ -26,6 +31,14 @@ const vehicleSchema = new mongoose.Schema(
     fuelRate: {
       type: Number,
       default: 0,
+    },
+    insuranceExpiry: { type: Date, default: null },
+    pucExpiry: { type: Date, default: null },
+    fitnessExpiry: { type: Date, default: null },
+    status: {
+      type: String,
+      enum: ["Active", "Maintenance", "Inactive"],
+      default: "Active",
     },
     notes: {
       type: String,

@@ -10,6 +10,7 @@ import Transporter from "./pages/PartyStatement";
 import Vehicles from "./pages/Vehicles";
 import ErrorPage from "./pages/ErrorPage";
 import Help from "./pages/Help";
+import Payments from "./pages/Payments";
 import RecordChatbot from "./components/RecordChatbot";
 
 export default function App() {
@@ -66,6 +67,14 @@ export default function App() {
           element={
             <StaffRoute>
               <Transporter />
+            </StaffRoute>
+          }
+        />
+        <Route
+          path="/payments"
+          element={
+            <StaffRoute>
+              <Payments />
             </StaffRoute>
           }
         />

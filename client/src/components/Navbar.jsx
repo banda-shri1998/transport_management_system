@@ -85,6 +85,9 @@ export default function Navbar() {
           <NavLink to="/transporter" className={linkClass}>
             Transporter
           </NavLink>
+          <NavLink to="/payments" className={linkClass}>
+            Payments
+          </NavLink>
           {user?.role && String(user.role).toLowerCase() === "admin" && (
             <NavLink to="/vehicles" className={linkClass}>
               Vehicles
@@ -127,6 +130,9 @@ export default function Navbar() {
           </NavLink>
           <NavLink to="/transporter" className={linkClass}>
             Transporter
+          </NavLink>
+          <NavLink to="/payments" className={linkClass}>
+            Payments
           </NavLink>
           {user?.role && String(user.role).toLowerCase() === "admin" && (
             <NavLink to="/vehicles" className={linkClass}>

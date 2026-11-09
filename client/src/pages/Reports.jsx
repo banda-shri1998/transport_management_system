@@ -70,11 +70,6 @@ export default function Reports() {
   };
   const getDateValue = (value) => value?.slice(0, 10) || "";
 
-  // const escapeCsvValue = (value) => {
-  //   const stringValue = String(value ?? "");
-  //   return `"${stringValue.replace(/"/g, '""')}"`;
-  // };
-
   const fetchRecords = async (pageNum = 1) => {
     try {
       const params = {
@@ -146,7 +141,7 @@ export default function Reports() {
     const timeoutId = setTimeout(() => fetchRecords(page), 0);
     return () => clearTimeout(timeoutId);
   }, [page, limit, sortBy, sortOrder, isFilterApplied]);
-
+  
   const handleSort = (field) => {
     setSortBy((currentField) => {
       if (currentField === field) {

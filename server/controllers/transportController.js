@@ -1,4 +1,5 @@
 import Transport from "../models/Transport.js";
+import Payment from "../models/Payment.js";
 import Vehicle from "../models/Vehicle.js";
 import Cancelled from "../models/Cancelled.js";
 import fs from "fs";
@@ -424,6 +425,61 @@ export const createTransport = async (req, res) => {
     res.status(201).json(record);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+};
+
+export const validateTransportImport = async (req, res) => {
+  try {
+    if (!Array.isArray(req.body.records)) {
+      return res.status(400).json({ message: "records must be an array" });
+    }
+    const normalizedRows = req.body.records.map((source, index) => ({
+      row: index + 2,
+      source,
+      record: normalizeTransportPayload(source, { allowPaymentFields: true }),
+      reasons: [],
+    }));
+    const seen = new Set();
+    const memoNos = [];
+    for (const item of normalizedRows) {
+      const value = item.record;
+      if (!value.date) item.reasons.push("Date is required or invalid");
+      if (!value.transportName) item.reasons.push("Transport Name is required");
+      if (value.freightMemoNo === undefined) item.reasons.push("Freight Memo No must be an integer");
+      if (!value.vehicleNo) item.reasons.push("Vehicle No is required");
+      if (!value.partyName) item.reasons.push("Party Name is required");
+      const memo = getDuplicateKey(value);
+      if (memo !== undefined) {
+        if (seen.has(memo)) item.reasons.push("Duplicate Freight Memo No in this file");
+        seen.add(memo);
+        memoNos.push(memo);
+      }
+    }
+    const uniqueMemoNos = [...new Set(memoNos)];
+    const existing = uniqueMemoNos.length
+      ? await Transport.find({ freightMemoNo: { $in: uniqueMemoNos } }, { freightMemoNo: 1 }).lean()
+      : [];
+    const existingNos = new Set(existing.map((record) => normalizeFreightMemoNo(record.freightMemoNo)));
+    const candidateRows = normalizedRows.filter((item) => !item.reasons.length);
+    const lrNos = [...new Set(candidateRows.flatMap((item) => item.record.lrNo.map(String)))];
+    const cancellationQuery = [];
+    if (uniqueMemoNos.length) cancellationQuery.push({ freightMemoNo: { $in: uniqueMemoNos } });
+    if (lrNos.length) cancellationQuery.push({ lrNo: { $in: lrNos } });
+    const cancelled = cancellationQuery.length ? await Cancelled.find({ $or: cancellationQuery }).lean() : [];
+    const cancelledMemos = new Set(cancelled.flatMap((item) => (Array.isArray(item.freightMemoNo) ? item.freightMemoNo : []).map(normalizeFreightMemoNo)));
+    const cancelledLrs = new Set(cancelled.flatMap((item) => (Array.isArray(item.lrNo) ? item.lrNo : []).flatMap(normalizeLrNo).map(String)));
+
+    const rows = normalizedRows.map(({ row, source, record, reasons }) => {
+      const memo = getDuplicateKey(record);
+      if (!reasons.some((reason) => reason.includes("Duplicate Freight")) && memo !== undefined && existingNos.has(memo)) reasons.push("Freight Memo No already exists");
+      if (memo !== undefined && cancelledMemos.has(memo)) reasons.push("Freight Memo No is cancelled");
+      const cancelledLrMatches = record.lrNo.map(String).filter((lrNo) => cancelledLrs.has(lrNo));
+      if (cancelledLrMatches.length) reasons.push(`Cancelled LR No: ${cancelledLrMatches.join(", ")}`);
+      return { row, record: source, valid: reasons.length === 0, reason: reasons.join("; ") };
+    });
+    return res.json({ rows, validCount: rows.filter((item) => item.valid).length, invalidCount: rows.filter((item) => !item.valid).length });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Unable to validate import rows" });
   }
 };
 
@@ -927,8 +983,23 @@ export const markRecordsPaid = async (req, res) => {
     const resolvedPaymentDate = parseDate(paymentDate) || new Date();
 
     for (const record of records) {
+      const previousBalance = Number(record.balance || 0);
+      if (previousBalance <= 0) continue;
+      await Payment.create({
+        transport: record._id,
+        paymentDate: resolvedPaymentDate,
+        amount: previousBalance,
+        method: "Other",
+        reference: "Marked paid",
+        previousBalance,
+        remainingBalance: 0,
+        transportName: record.transportName,
+        freightMemoNo: record.freightMemoNo,
+        recordedBy: req.user?.name || req.user?.email || "",
+      });
       record.paymentAmount =
-        (record.paymentAmount || 0) + (record.balance || 0);
+        (record.paymentAmount || 0) + previousBalance;
+      record.payAmount = Number(record.payAmount || 0) + previousBalance;
 
       record.balance = 0;
       record.paymentStatus = "Paid";

@@ -20,8 +20,14 @@ export default function Vehicles() {
     maximumCapacity: 0,
     fuelType: "Diesel",
     fuelRate: 0,
+    vehicleType: "",
+    insuranceExpiry: "",
+    pucExpiry: "",
+    fitnessExpiry: "",
+    status: "Active",
     notes: "",
   });
+  const [performance, setPerformance] = useState({});
   const [error, setError] = useState("");
 
   const transporterOptions = [
@@ -52,8 +58,15 @@ export default function Vehicles() {
   const fetchVehicles = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/vehicles");
-      setVehicles(Array.isArray(res.data) ? res.data : []);
+      const [vehicleResult, performanceResult] = await Promise.all([
+        api.get("/vehicles"),
+        api.get("/vehicles/performance"),
+      ]);
+      const metrics = Object.fromEntries(
+        (performanceResult.data || []).map((entry) => [entry.vehicleNo, entry]),
+      );
+      setPerformance(metrics);
+      setVehicles(Array.isArray(vehicleResult.data) ? vehicleResult.data : []);
     } catch (err) {
       console.error(err);
       setVehicles([]);
@@ -77,6 +90,11 @@ export default function Vehicles() {
         maximumCapacity: 0,
         fuelType: "Diesel",
         fuelRate: 0,
+        vehicleType: "",
+        insuranceExpiry: "",
+        pucExpiry: "",
+        fitnessExpiry: "",
+        status: "Active",
         notes: "",
       });
       fetchVehicles();
@@ -98,6 +116,11 @@ export default function Vehicles() {
       maximumCapacity: v.maximumCapacity || 0,
       fuelType: v.fuelType,
       fuelRate: v.fuelRate || 0,
+      vehicleType: v.vehicleType || "",
+      insuranceExpiry: v.insuranceExpiry?.slice(0, 10) || "",
+      pucExpiry: v.pucExpiry?.slice(0, 10) || "",
+      fitnessExpiry: v.fitnessExpiry?.slice(0, 10) || "",
+      status: v.status || "Active",
       notes: v.notes || "",
       id: v._id,
     });
@@ -107,20 +130,18 @@ export default function Vehicles() {
     e.preventDefault();
     try {
       if (!form.id) return;
-      await api.put(`/vehicles/${form.id}`, {
-        vehicleNo: form.vehicleNo,
-        ownerName: form.ownerName,
-        maximumCapacity: form.maximumCapacity,
-        fuelType: form.fuelType,
-        fuelRate: form.fuelRate,
-        notes: form.notes,
-      });
+      await api.put(`/vehicles/${form.id}`, { ...form });
       setForm({
         vehicleNo: "",
         ownerName: "",
         maximumCapacity: 0,
         fuelType: "Diesel",
         fuelRate: 0,
+        vehicleType: "",
+        insuranceExpiry: "",
+        pucExpiry: "",
+        fitnessExpiry: "",
+        status: "Active",
         notes: "",
       });
       fetchVehicles();
@@ -134,7 +155,7 @@ export default function Vehicles() {
       <Navbar />
       <PageContainer
         title="Vehicles"
-        subtitle="Manage vehicle fuel types and rates (admin)"
+        subtitle="Manage vehicle documents, status, fuel details, and performance (admin)"
       >
         <div className="mb-4">
           <p className="text-sm text-slate-500">
@@ -146,7 +167,7 @@ export default function Vehicles() {
           <>
             <form
               onSubmit={form.id ? saveEdit : submit}
-              className="mb-6 grid gap-3 md:grid-cols-6"
+            className="mb-6 grid gap-3 md:grid-cols-4 xl:grid-cols-6"
             >
               <input
                 placeholder="Vehicle No"
@@ -177,6 +198,7 @@ export default function Vehicles() {
                   }))
                 }
               />
+              <input placeholder="Vehicle Type" value={form.vehicleType} onChange={(e) => setForm((p) => ({ ...p, vehicleType: e.target.value }))} />
               <select
                 value={form.fuelType}
                 onChange={(e) =>
@@ -195,6 +217,10 @@ export default function Vehicles() {
                   setForm((p) => ({ ...p, fuelRate: Number(e.target.value) }))
                 }
               />
+              <label className="text-xs text-slate-500">Insurance expiry<input aria-label="Insurance expiry" type="date" value={form.insuranceExpiry} onChange={(e) => setForm((p) => ({ ...p, insuranceExpiry: e.target.value }))} /></label>
+              <label className="text-xs text-slate-500">PUC expiry<input aria-label="PUC expiry" type="date" value={form.pucExpiry} onChange={(e) => setForm((p) => ({ ...p, pucExpiry: e.target.value }))} /></label>
+              <label className="text-xs text-slate-500">Fitness expiry<input aria-label="Fitness expiry" type="date" value={form.fitnessExpiry} onChange={(e) => setForm((p) => ({ ...p, fitnessExpiry: e.target.value }))} /></label>
+              <select aria-label="Vehicle status" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}><option>Active</option><option>Maintenance</option><option>Inactive</option></select>
               <div className="flex gap-2">
                 <button className="rounded-2xl bg-blue-600 px-4 py-2 text-white">
                   {form.id ? "Save" : "Add"}
@@ -209,6 +235,11 @@ export default function Vehicles() {
                         maximumCapacity: 0,
                         fuelType: "Diesel",
                         fuelRate: 0,
+                        vehicleType: "",
+                        insuranceExpiry: "",
+                        pucExpiry: "",
+                        fitnessExpiry: "",
+                        status: "Active",
                         notes: "",
                       })
                     }
@@ -285,27 +316,43 @@ export default function Vehicles() {
           {loading ? (
             <p>Loading...</p>
           ) : (
-            <table className="w-full text-left text-sm">
+            <div className="overflow-auto"><table className="w-full min-w-[1150px] text-left text-sm">
               <thead>
                 <tr className="border-b text-xs text-slate-400">
                   <th className="px-3 py-2">Vehicle</th>
+                  <th className="px-3 py-2">Type</th>
                   <th className="px-3 py-2">Owner Name</th>
                   <th className="px-3 py-2 text-right">Maximum Capacity</th>
                   <th className="px-3 py-2">Fuel Type</th>
                   <th className="px-3 py-2">Fuel Rate</th>
-                  <th className="px-3 py-2">Actions</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Documents</th>
+                    <th className="px-3 py-2 text-right">Trips</th>
+                    <th className="px-3 py-2 text-right">Quantity</th>
+                    <th className="px-3 py-2 text-right">Freight</th>
+                    <th className="px-3 py-2 text-right">Fuel Cost</th>
+                    <th className="px-3 py-2 text-right">Outstanding</th>
+                    <th className="px-3 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleVehicles.map((v) => (
                   <tr key={v._id} className="border-b hover:bg-slate-500">
                     <td className="px-3 py-2 font-mono">{v.vehicleNo}</td>
+                    <td className="px-3 py-2">{v.vehicleType || "—"}</td>
                     <td className="px-3 py-2">{v.ownerName || "-"}</td>
                     <td className="px-3 py-2 text-right">
                       {Number(v.maximumCapacity) > 0 ? v.maximumCapacity : "-"}
                     </td>
                     <td className="px-3 py-2">{v.fuelType}</td>
                     <td className="px-3 py-2">{v.fuelRate || "-"}</td>
+                    <td className="px-3 py-2">{v.status || "Active"}</td>
+                    <td className="px-3 py-2 text-xs">Ins: {v.insuranceExpiry ? new Date(v.insuranceExpiry).toLocaleDateString("en-IN") : "—"}<br />PUC: {v.pucExpiry ? new Date(v.pucExpiry).toLocaleDateString("en-IN") : "—"}<br />Fitness: {v.fitnessExpiry ? new Date(v.fitnessExpiry).toLocaleDateString("en-IN") : "—"}</td>
+                    <td className="px-3 py-2 text-right">{performance[v.vehicleNo]?.totalTrips || 0}</td>
+                    <td className="px-3 py-2 text-right">{Number(performance[v.vehicleNo]?.totalQuantity || 0).toLocaleString("en-IN")}</td>
+                    <td className="px-3 py-2 text-right">₹{Number(performance[v.vehicleNo]?.totalFreight || 0).toLocaleString("en-IN")}</td>
+                    <td className="px-3 py-2 text-right">₹{Number(performance[v.vehicleNo]?.totalFuelExpense || 0).toLocaleString("en-IN")}</td>
+                    <td className="px-3 py-2 text-right">₹{Number(performance[v.vehicleNo]?.totalOutstanding || 0).toLocaleString("en-IN")}</td>
                     <td className="px-3 py-2">
                       {isAdmin ? (
                         <div className="flex gap-2">
@@ -329,7 +376,7 @@ export default function Vehicles() {
                 {visibleVehicles.length === 0 && (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={14}
                       className="px-3 py-8 text-center text-sm text-slate-400"
                     >
                       {vehicles.length === 0
@@ -339,7 +386,7 @@ export default function Vehicles() {
                   </tr>
                 )}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
       </PageContainer>
