@@ -331,7 +331,7 @@ export default function RecordChatbot() {
         className="rounded-full bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-3 font-medium text-white shadow-xl shadow-blue-500/30 hover:-translate-y-0.5"
         aria-label="Open records assistant"
       >
-        {open ? "Close chat" : "Ask records"}
+        {open ? "Close chat" : "?"}
       </button>
     </div>
   );

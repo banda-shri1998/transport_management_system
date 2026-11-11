@@ -1,490 +1,285 @@
-import Navbar from "../components/Navbar";
-import PageContainer from "../components/PageContainer";
-import API from "../services/api";
-import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import Navbar from "../components/Navbar";
+import PageContainer from "../components/PageContainer";
+import API from "../services/api";
 
-const formatCurrency = (value) =>
+const money = (value) =>
   new Intl.NumberFormat("en-IN", {
-    maximumFractionDigits: 0,
     style: "currency",
     currency: "INR",
-  }).format(Number(value || 0));
-
-const chartCurrency = (value) =>
-  new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
-
-const statCards = [
-  {
-    key: "totalTrips",
-    title: "Total Records",
-    accent: "from-blue-600 to-cyan-500",
-    description: "Trips currently stored in the system",
-  },
-  {
-    key: "totalBalance",
-    title: "Pending Payments",
-    accent: "from-orange-500 to-amber-400",
-    description: "Outstanding balance across all transports",
-  },
-  {
-    key: "totalRevenue",
-    title: "Gross Freight Value",
-    accent: "from-emerald-600 to-teal-500",
-    description: "Freight value recorded across transport trips",
-  },
-  {
-    key: "totalFuel",
-    title: "Fuel Expense",
-    accent: "from-violet-600 to-fuchsia-500",
-    description: "Cumulative fuel spend recorded",
-  },
-  {
-    key: "totalPaid",
-    title: "Paid to Transporters",
-    accent: "from-indigo-600 to-blue-500",
-    description: "Payments recorded against transporter balances",
-  },
+const shortMoney = (value) =>
+  new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(
+    Number(value || 0),
+  );
+const dateOptions = [
+  { value: "today", label: "Today" },
+  { value: "thisWeek", label: "This week" },
+  { value: "thisMonth", label: "This month" },
+  { value: "previousMonth", label: "Previous month" },
+  { value: "custom", label: "Custom range" },
+  { value: "all", label: "All time" },
 ];
-
-const fuelColors = ["#2563eb", "#14b8a6", "#f59e0b", "#a855f7"];
+const metrics = [
+  ["totalFreightRevenue", "Freight revenue"],
+  ["totalAdvanceReceived", "Advance received"],
+  ["totalTrips", "Trips"],
+  ["totalTransporterPayments", "Transporter payments made"],
+  ["totalPartyOutstanding", "Party outstanding"],
+  ["totalTransporterOutstanding", "Transporter outstanding"],
+  ["totalFuelExpenses", "Fuel expenses"],
+  ["netFinancialPosition", "Net financial position"],
+];
+const table = (title, columns, rows) => (
+  <div className="glass-panel overflow-hidden rounded-2xl">
+    <div className="border-b border-slate-200 p-5 dark:border-slate-800">
+      <h2 className="text-lg font-semibold">{title}</h2>
+    </div>
+    <div className="overflow-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr>
+            {columns.map(([key, label]) => (
+              <th
+                className="px-4 py-3 text-left font-medium text-slate-500"
+                key={key}
+              >
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr
+              className="border-t border-slate-100 dark:border-slate-800"
+              key={`${row.name || row.date}-${i}`}
+            >
+              {columns.map(([key]) => (
+                <td className="px-4 py-3" key={key}>
+                  {key === "freightRevenue" ||
+                  key === "fuelExpenses" ||
+                  key === "transporterPayments" ||
+                  key === "advanceReceived" ||
+                  key === "outstanding" ||
+                  key === "revenue"
+                    ? money(row[key])
+                    : (row[key] ?? "—")}
+                </td>
+              ))}
+            </tr>
+          ))}
+          {!rows.length && (
+            <tr>
+              <td
+                className="px-4 py-6 text-center text-slate-500"
+                colSpan={columns.length}
+              >
+                No data in this date range.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 export default function Dashboard() {
   const location = useLocation();
-  const [records, setRecords] = useState([]);
-  const [paymentTransactions, setPaymentTransactions] = useState([]);
-  const [stats, setStats] = useState({
-    totalTrips: 0,
-    totalRevenue: 0,
-    totalFuel: 0,
-    totalBalance: 0,
-    totalPaid: 0,
-  });
-  const [showToast, setShowToast] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(null);
-
+  const [preset, setPreset] = useState("thisMonth");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      const [transportResponse, paymentResponse] = await Promise.all([
-        API.get("/transports"),
-        API.get("/payments"),
-      ]);
-      const data = transportResponse.data;
-      const transactions = Array.isArray(paymentResponse.data) ? paymentResponse.data : [];
-
-      const totalTrips = data.length;
-      const totalRevenue = data.reduce(
-        (sum, r) => sum + (r.totalAmount || 0),
-        0,
-      );
-      const totalFuel = data.reduce((sum, r) => sum + (r.fuelExpense || 0), 0);
-      const totalBalance = data.reduce(
-        (sum, r) => sum + Number(r.balance || 0),
-        0,
-      );
-      const totalPaid = data.reduce(
-        (sum, r) => sum + Number(r.paymentAmount || r.payAmount || 0),
-        0,
-      );
-
-      setRecords(data);
-      setPaymentTransactions(transactions);
-      setStats({
-        totalTrips,
-        totalRevenue,
-        totalFuel,
-        totalBalance,
-        totalPaid,
+    let active = true;
+    API.get("/reports/analytics", {
+      params: { preset, ...(preset === "custom" ? { from, to } : {}) },
+    })
+      .then((response) => {
+        if (active) {
+          setData(response.data);
+          setError("");
+        }
+      })
+      .catch((err) => {
+        if (active)
+          setError(
+            err.response?.data?.message ||
+              "Unable to load dashboard analytics.",
+          );
       });
-    };
-
-    fetchDashboardData();
-  }, [location.key]);
-
-  useEffect(() => {
-    if (!location.state?.success) return;
-
-    const showTimer = setTimeout(() => setShowToast(true), 0);
-    const hideTimer = setTimeout(() => setShowToast(false), 3000);
-
     return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
+      active = false;
     };
-  }, [location.state]);
-
-  const monthlyChartData = useMemo(() => {
-    const monthMap = new Map();
-
-    records.forEach((record) => {
-      const date = new Date(record.date);
-      if (Number.isNaN(date.getTime())) return;
-
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const label = date.toLocaleDateString("en-IN", {
-        month: "short",
-        year: "2-digit",
-      });
-
-      if (!monthMap.has(key)) {
-        monthMap.set(key, {
-          key,
-          label,
-          revenue: 0,
-          fuel: 0,
-          balance: 0,
-          paid: 0,
-        });
-      }
-
-      const current = monthMap.get(key);
-      current.revenue += Number(record.totalAmount || 0);
-      current.fuel += Number(record.fuelExpense || 0);
-      current.balance += Number(record.balance || 0);
-    });
-
-    const ledgerTransportIds = new Set(paymentTransactions.map((payment) => String(payment.transport)));
-    const addPaymentToMonth = (paymentDate, amount) => {
-      const date = new Date(paymentDate);
-      if (Number.isNaN(date.getTime())) return;
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const label = date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
-      if (!monthMap.has(key)) monthMap.set(key, { key, label, revenue: 0, fuel: 0, balance: 0, paid: 0 });
-      monthMap.get(key).paid += Number(amount || 0);
-    };
-    paymentTransactions.forEach((payment) => addPaymentToMonth(payment.paymentDate, payment.amount));
-    records.forEach((record) => {
-      if (record.paymentDate && !ledgerTransportIds.has(String(record._id))) {
-        addPaymentToMonth(record.paymentDate, record.paymentAmount || record.payAmount || 0);
-      }
-    });
-
-    return [...monthMap.values()].sort((a, b) => b.key.localeCompare(a.key));
-  }, [records, paymentTransactions]);
-
-  const availableMonths = useMemo(() => {
-    const months = monthlyChartData.map((item) => ({
-      key: item.key,
-      label: item.label,
-    }));
-    return months;
-  }, [monthlyChartData]);
-
-  const filteredRecords = useMemo(() => {
-    if (!selectedMonth) return records;
-    return records.filter((record) => {
-      const date = new Date(record.date);
-      if (Number.isNaN(date.getTime())) return false;
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      return key === selectedMonth;
-    });
-  }, [records, selectedMonth]);
-
-  const filteredStats = useMemo(() => {
-    const totalTrips = filteredRecords.length;
-    const totalRevenue = filteredRecords.reduce(
-      (sum, r) => sum + (r.totalAmount || 0),
-      0,
-    );
-    const totalFuel = filteredRecords.reduce(
-      (sum, r) => sum + (r.fuelExpense || 0),
-      0,
-    );
-    const totalBalance = filteredRecords.reduce(
-      (sum, r) => sum + Number(r.balance || 0),
-      0,
-    );
-    const totalPaid = filteredRecords.reduce(
-      (sum, r) => sum + Number(r.paymentAmount || r.payAmount || 0),
-      0,
-    );
-
-    return {
-      totalTrips,
-      totalRevenue,
-      totalFuel,
-      totalBalance,
-      totalPaid,
-    };
-  }, [filteredRecords]);
-
-  const displayStats = selectedMonth ? filteredStats : stats;
-
-  const displayMonthlyChartData = useMemo(() => {
-    if (!selectedMonth) {
-      return monthlyChartData.slice(0, 6);
-    }
-    return monthlyChartData.filter((item) => item.key === selectedMonth);
-  }, [monthlyChartData, selectedMonth]);
-
-  const fuelTypeData = useMemo(() => {
-    const totals = filteredRecords.reduce((acc, record) => {
-      const key = record.fuelType || "Other";
-      acc[key] = (acc[key] || 0) + Number(record.fuelExpense || 0);
-      return acc;
-    }, {});
-
-    return Object.entries(totals).map(([name, value]) => ({ name, value }));
-  }, [filteredRecords]);
-
-  const topPartyData = useMemo(() => {
-    const totals = filteredRecords.reduce((acc, record) => {
-      const key = record.transportName || "Unknown transporter";
-      acc[key] = (acc[key] || 0) + Number(record.totalAmount || 0);
-      return acc;
-    }, {});
-
-    return Object.entries(totals)
-      .map(([name, revenue]) => ({ name, revenue }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
-  }, [filteredRecords]);
-
+  }, [preset, from, to, location.key]);
+  const summary = data?.summary || {};
   return (
     <>
       <Navbar />
       <PageContainer
         title="Dashboard"
-        subtitle="Operational overview for freight, transporter payments, outstanding, and recorded fuel cost."
+        subtitle="Financial and operational analytics from transport and payment records."
       >
-        {showToast && (
-          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-900/80 dark:bg-emerald-950/50 dark:text-emerald-300">
-            Record added successfully.
-          </div>
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <label className="text-sm font-medium" htmlFor="dashboard-range">
+            Date range
+          </label>
+          <select
+            id="dashboard-range"
+            className="rounded-xl border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
+            value={preset}
+            onChange={(e) => setPreset(e.target.value)}
+          >
+            {dateOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {preset === "custom" && (
+            <>
+              <input
+                aria-label="From date"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="rounded-xl border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
+              />
+              <span>to</span>
+              <input
+                aria-label="To date"
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="rounded-xl border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
+              />
+            </>
+          )}
+          <Link
+            className="ml-auto text-sm font-semibold text-blue-600"
+            to="/reports"
+          >
+            Open detailed reports →
+          </Link>
+        </div>
+        {error && (
+          <p
+            role="alert"
+            className="mb-5 rounded-xl bg-red-50 p-4 text-red-700"
+          >
+            {error}
+          </p>
         )}
-
-        <section className="mb-8 grid gap-6 md:grid-cols-2 xl:grid-cols-5">
-          {statCards.map((card) => (
-            <div
-              key={card.key}
-              className="cardDash overflow-hidden rounded-3xl p-[1px]"
-            >
-              <div
-                className={`h-full rounded-[calc(1.5rem-1px)] bg-gradient-to-br ${card.accent} p-6 text-white`}
-              >
-                <p className="text-sm font-medium text-white/80">
-                  {card.title}
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {metrics.map(([key, label]) => (
+            <article key={key} className="cardDash rounded-2xl p-5">
+              <p className="metric-label">{label}</p>
+              <p className="metric-value mt-2">{money(summary[key])}</p>
+              {key === "netFinancialPosition" && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Party receipts − transporter payments − fuel expenses
                 </p>
-                <p className="mt-4 text-3xl font-bold tracking-tight">
-                  {card.key === "totalTrips"
-                    ? displayStats[card.key]
-                    : formatCurrency(displayStats[card.key])}
-                </p>
-                <p className="mt-3 text-sm text-white/80">{card.description}</p>
-              </div>
-            </div>
+              )}
+            </article>
           ))}
         </section>
-
-        <section className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                Filter by Month
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Select a month to view detailed records and statistics
-              </p>
-            </div>
-            <select
-              value={selectedMonth || ""}
-              onChange={(e) => setSelectedMonth(e.target.value || null)}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm outline-none transition duration-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-            >
-              <option value="">All Months</option>
-              {availableMonths.map((month) => (
-                <option key={month.key} value={month.key}>
-                  {month.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-          <div className="glass-panel p-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-                Monthly Performance
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {selectedMonth
-                  ? "Selected month's freight value, fuel, payments, and outstanding"
-                  : "Freight value, recorded fuel expense, payments, and outstanding by trip month."}
-              </p>
-            </div>
-            <div className="h-[320px]">
+        <div className="mt-6">
+          <section className="glass-panel rounded-2xl p-5">
+            <h2 className="mb-1 text-lg font-semibold">
+              Monthly revenue and expenses
+            </h2>
+            <p className="mb-4 text-sm text-slate-500">
+              Freight revenue, fuel expenses, and transporter payments, grouped
+              by trip month.
+            </p>
+            <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={displayMonthlyChartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#cbd5e1"
-                    opacity={0.3}
-                  />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                  <YAxis
-                    tickFormatter={chartCurrency}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                <BarChart data={data?.trends || []}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="month" />
+                  <YAxis tickFormatter={shortMoney} />
+                  <Tooltip formatter={(value) => money(value)} />
                   <Bar
                     dataKey="revenue"
-                    radius={[10, 10, 0, 0]}
+                    name="Freight revenue"
                     fill="#2563eb"
                   />
-                  <Bar dataKey="fuel" radius={[10, 10, 0, 0]} fill="#14b8a6" />
-                  <Bar dataKey="paid" radius={[10, 10, 0, 0]} fill="#6366f1" />
                   <Bar
-                    dataKey="balance"
-                    radius={[10, 10, 0, 0]}
+                    dataKey="fuelExpenses"
+                    name="Fuel expenses"
+                    fill="#14b8a6"
+                  />
+                  <Bar
+                    dataKey="transporterPayments"
+                    name="Transporter payments"
                     fill="#f59e0b"
                   />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
-
-          <div className="glass-panel p-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-                Fuel Mix
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Distribution of recorded fuel expense by fuel type.
-              </p>
-            </div>
-            <div className="h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={fuelTypeData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={65}
-                    outerRadius={100}
-                    paddingAngle={4}
-                  >
-                    {fuelTypeData.map((entry, index) => (
-                      <Cell
-                        key={entry.name}
-                        fill={fuelColors[index % fuelColors.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid gap-2">
-              {fuelTypeData.map((item, index) => (
+          </section>
+          <section className="glass-panel rounded-2xl p-5 mt-6">
+            <h2 className="mb-1 text-lg font-semibold">
+              Daily transport activity
+            </h2>
+            <div className="mt-4 h-[330px] overflow-auto">
+              {(data?.daily || []).map((item) => (
                 <div
-                  key={item.name}
-                  className="flex items-center justify-between rounded-2xl bg-slate-50/80 px-4 py-3 dark:bg-slate-950/40"
+                  className="flex items-center justify-between border-b border-slate-100 py-3 text-sm dark:border-slate-800"
+                  key={item.date}
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="h-3 w-3 rounded-full"
-                      style={{
-                        backgroundColor: fuelColors[index % fuelColors.length],
-                      }}
-                    />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {item.name}
-                    </span>
-                  </div>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {formatCurrency(item.value)}
+                  <span>
+                    {item.date}{" "}
+                    <span className="text-slate-500">· {item.trips} trips</span>
                   </span>
+                  <span className="font-semibold">{money(item.revenue)}</span>
                 </div>
               ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-          <div className="glass-panel p-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-                Top Transporters by Freight Value
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Highest gross freight values by transporter in the current dataset.
-              </p>
-            </div>
-            <div className="space-y-4">
-              {topPartyData.map((party, index) => {
-                const maxRevenue = topPartyData[0]?.revenue || 1;
-                const width = `${Math.max((party.revenue / maxRevenue) * 100, 12)}%`;
-
-                return (
-                  <div key={party.name}>
-                    <div className="mb-2 flex items-center justify-between text-sm">
-                      <span className="font-medium text-slate-700 dark:text-slate-200">
-                        {index + 1}. {party.name}
-                      </span>
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {formatCurrency(party.revenue)}
-                      </span>
-                    </div>
-                    <div className="h-3 rounded-full bg-slate-200/80 dark:bg-slate-800">
-                      <div
-                        className="h-3 rounded-full bg-gradient-to-r from-blue-600 to-violet-600"
-                        style={{ width }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="glass-panel p-6">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-              Health Check
-            </h2>
-            <div className="mt-5 space-y-4">
-              <div className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-950/40">
-                <p className="metric-label">Outstanding to transporters</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
-                  {displayStats.totalBalance > 0 ? "Attention needed" : "Balanced"}
+              {data && !data.daily && (
+                <p className="py-10 text-center text-slate-500">
+                  No activity in this range.
                 </p>
-              </div>
-              <div className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-950/40">
-                <p className="metric-label">Average freight value per trip</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
-                  {formatCurrency(
-                    displayStats.totalTrips
-                      ? displayStats.totalRevenue / displayStats.totalTrips
-                      : 0,
-                  )}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-50/80 p-4 dark:bg-slate-950/40">
-                <p className="metric-label">Average fuel per trip</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">
-                  {formatCurrency(
-                    displayStats.totalTrips ? displayStats.totalFuel / displayStats.totalTrips : 0,
-                  )}
-                </p>
-              </div>
+              )}
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
+        <div className="mt-6 grid gap-6 xl:grid-cols-2">
+          {table(
+            "Transporter performance",
+            [
+              ["name", "Transporter"],
+              ["trips", "Trips"],
+              ["freightRevenue", "Freight value"],
+              ["transporterPayments", "Paid to transporter"],
+              ["outstanding", "Outstanding"],
+            ],
+            data?.transporters || [],
+          )}
+          {table(
+            "Vehicle activity",
+            [
+              ["vehicleNo", "Vehicle number"],
+              ["trips", "Trips"],
+              ["freightRevenue", "Freight value"],
+              ["fuelExpenses", "Fuel expense"],
+              ["transporterPayments", "Transporter payments"],
+            ],
+            data?.vehicles || [],
+          )}
+        </div>
       </PageContainer>
     </>
   );

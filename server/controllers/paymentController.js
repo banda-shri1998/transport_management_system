@@ -23,14 +23,55 @@ export const listPayments = async (req, res) => {
 
 export const recordPayment = async (req, res) => {
   try {
-    const { transportId, amount, paymentDate, method, reference } = req.body;
-    const paidAmount = Number(amount);
-    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
-      return res.status(400).json({ message: "Payment amount must be greater than zero" });
-    }
+    const { transportId, transportIds, amount, paymentDate, method, reference } = req.body;
     const date = paymentDate ? new Date(paymentDate) : new Date();
     if (Number.isNaN(date.getTime())) {
       return res.status(400).json({ message: "Enter a valid payment date" });
+    }
+    const paymentMethod = ["Cash", "Bank Transfer", "Cheque", "UPI", "Other"].includes(method) ? method : "Other";
+    const paymentReference = String(reference || "").trim();
+
+    if (Array.isArray(transportIds)) {
+      const ids = [...new Set(transportIds.filter(Boolean).map(String))];
+      if (!ids.length) return res.status(400).json({ message: "Select at least one freight memo" });
+
+      const transports = await Transport.find({ _id: { $in: ids } });
+      if (transports.length !== ids.length) {
+        return res.status(404).json({ message: "One or more transport records were not found" });
+      }
+      const alreadyPaid = transports.find((transport) => Number(transport.balance || 0) <= 0);
+      if (alreadyPaid) {
+        return res.status(400).json({ message: `Freight Memo No ${alreadyPaid.freightMemoNo} is already paid` });
+      }
+
+      const payments = await Payment.insertMany(transports.map((transport) => ({
+        transport: transport._id,
+        paymentDate: date,
+        amount: Number(transport.balance),
+        method: paymentMethod,
+        reference: paymentReference,
+        previousBalance: Number(transport.balance),
+        remainingBalance: 0,
+        transportName: transport.transportName,
+        freightMemoNo: transport.freightMemoNo,
+        recordedBy: req.user?.name || req.user?.email || "",
+      })));
+
+      await Transport.bulkWrite(transports.map((transport) => ({
+        updateOne: {
+          filter: { _id: transport._id },
+          update: {
+            $set: { balance: 0, paymentStatus: "Paid", paymentDate: date },
+            $inc: { paymentAmount: Number(transport.balance), payAmount: Number(transport.balance) },
+          },
+        },
+      })));
+      return res.status(201).json({ payments, transports: await Transport.find({ _id: { $in: ids } }) });
+    }
+
+    const paidAmount = Number(amount);
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+      return res.status(400).json({ message: "Payment amount must be greater than zero" });
     }
     const transport = await Transport.findById(transportId);
     if (!transport) return res.status(404).json({ message: "Transport record not found" });
@@ -43,8 +84,8 @@ export const recordPayment = async (req, res) => {
       transport: transport._id,
       paymentDate: date,
       amount: paidAmount,
-      method: ["Cash", "Bank Transfer", "Cheque", "UPI", "Other"].includes(method) ? method : "Other",
-      reference: String(reference || "").trim(),
+      method: paymentMethod,
+      reference: paymentReference,
       previousBalance,
       remainingBalance,
       transportName: transport.transportName,
