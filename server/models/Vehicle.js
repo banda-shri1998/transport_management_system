@@ -7,6 +7,17 @@ const vehicleSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
+      uppercase: true,
+    },
+    ownershipType: {
+      type: String,
+      enum: ["Owned", "Attached", "Hired"],
+      default: "Owned",
+    },
+    transporter: {
+      type: String,
+      trim: true,
+      default: "",
     },
     ownerName: {
       type: String,
@@ -47,5 +58,7 @@ const vehicleSchema = new mongoose.Schema(
   },
   { timestamps: true, collection: "Vehicles" },
 );
+vehicleSchema.index({ vehicleNo: 1 }, { unique: true });
+vehicleSchema.index({ status: 1, transporter: 1 });
 
 export default mongoose.model("Vehicle", vehicleSchema);

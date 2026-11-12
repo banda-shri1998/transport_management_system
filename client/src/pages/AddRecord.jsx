@@ -435,7 +435,10 @@ export default function AddRecord() {
               <div className="flex flex-wrap items-center justify-between gap-4 border-b p-5 dark:border-slate-700">
                 <div>
                   <h2 className="text-xl font-semibold">Import Preview & Validation</h2>
-                  <p className="mt-1 text-sm text-slate-500">{importPreview.rows.filter((item) => item.valid && !item.needsValidation).length} valid · {importPreview.rows.filter((item) => !item.valid || item.needsValidation).length} need attention. Correct required fields, revalidate, then choose rows to import.</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Total: {importPreview.rows.length} · Valid: {importPreview.rows.filter((item) => item.valid && !item.needsValidation).length} · Invalid: {importPreview.rows.filter((item) => !item.valid || item.needsValidation).length} · Duplicates: {importPreview.rows.filter((item) => /duplicate|already exists/i.test(item.reason || "")).length}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Columns are mapped automatically from the template and common report headers. Edit a row below, revalidate it, then select the records to import.</p>
                   {importPreview.fallback && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Server-side preview validation is unavailable on this deployment. This preview checks required fields and duplicate memo numbers in the file; the import endpoint will still apply its database duplicate and cancellation checks.</p>}
                 </div>
                 <button type="button" onClick={() => setImportPreview(null)} className="rounded-xl border px-3 py-2">Close</button>
@@ -475,6 +478,9 @@ export default function AddRecord() {
                     <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">Import Completed</h2>
                     <div className="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-200">
                       <p>✔ Imported: <strong>{importSummary.count || 0}</strong></p>
+                      <p>📄 Submitted: <strong>{importSummary.total || 0}</strong></p>
+                      <p>✅ Valid for import: <strong>{importSummary.valid || 0}</strong></p>
+                      <p>⛔ Invalid: <strong>{importSummary.invalid || 0}</strong></p>
                       <p>⚠ Duplicates: <strong>{duplicates.length}</strong></p>
                       <p>🚫 Cancelled: <strong>{cancelled.length}</strong></p>
                       <p>❌ Failed: <strong>{failed.length}</strong></p>

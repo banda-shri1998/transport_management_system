@@ -163,6 +163,7 @@ router.get("/analytics", async (req, res) => {
       ]),
       Payment.aggregate([
         ...paymentBase(range),
+        { $match: { reference: { $ne: "Marked paid" } } },
         { $group: { _id: null, totalPartyReceipts: sumField("$_receipt") } },
       ]),
       Transport.aggregate([
@@ -248,6 +249,7 @@ router.get("/analytics", async (req, res) => {
       ]),
       Payment.aggregate([
         ...paymentBase(range),
+        { $match: { reference: { $ne: "Marked paid" } } },
         {
           $lookup: {
             from: "transports",

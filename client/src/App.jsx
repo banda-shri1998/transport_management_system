@@ -8,6 +8,7 @@ import EditRecord from "./pages/EditRecord";
 import Reports from "./pages/Reports";
 import Transporter from "./pages/PartyStatement";
 import Vehicles from "./pages/Vehicles";
+import VehicleDetails from "./pages/VehicleDetails";
 import ErrorPage from "./pages/ErrorPage";
 import Help from "./pages/Help";
 import Payments from "./pages/Payments";
@@ -88,6 +89,14 @@ export default function App() {
           element={
             <AdminRoute>
               <Vehicles />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/vehicles/:id"
+          element={
+            <AdminRoute>
+              <VehicleDetails />
             </AdminRoute>
           }
         />

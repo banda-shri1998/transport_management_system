@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import Navbar from "../components/Navbar";
 import PageContainer from "../components/PageContainer";
 import api from "../services/api";
@@ -173,7 +174,45 @@ export default function Payments() {
         );
       if (!selectedIds.length)
         throw new Error("Select at least one freight memo");
-      await api.post("/payments", { ...form, transportIds: selectedIds });
+      const { data } = await api.post("/payments", {
+        ...form,
+        transportIds: selectedIds,
+      });
+      const paymentsByTransport = new Map(
+        (data.payments || []).map((payment) => [
+          String(payment.transport),
+          payment,
+        ]),
+      );
+      const exportRows = (data.transports || []).map((transport) => {
+        const payment = paymentsByTransport.get(String(transport._id)) || {};
+        return Object.fromEntries(
+          Object.entries({
+            ...transport,
+            ledgerPaymentDate: payment.paymentDate,
+            ledgerPaymentAmount: payment.amount,
+            ledgerPaymentMethod: payment.method,
+            ledgerPaymentReference: payment.reference,
+            ledgerPaymentPreviousBalance: payment.previousBalance,
+            ledgerPaymentRemainingBalance: payment.remainingBalance,
+            ledgerPaymentRecordedBy: payment.recordedBy,
+          }).map(([key, value]) => [
+            key,
+            value && typeof value === "object"
+              ? JSON.stringify(value)
+              : value,
+          ]),
+        );
+      });
+      if (exportRows.length) {
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.json_to_sheet(exportRows);
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Paid Freight Memos");
+        XLSX.writeFile(
+          workbook,
+          `paid-freight-memos-${form.paymentDate}.xlsx`,
+        );
+      }
       setSelectedIds([]);
       setForm((current) => ({ ...current, reference: "" }));
       await refresh();

@@ -33,6 +33,13 @@ const transportSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Optional so historical records that only have vehicleNo remain valid.
+    vehicle: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vehicle",
+      default: null,
+      index: true,
+    },
 
     partyName: {
       type: String,
@@ -123,5 +130,10 @@ const transportSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+transportSchema.index({ vehicleNo: 1, date: -1 });
+// A freight memo identifies one transport record.  This database constraint is
+// the last line of defence when two imports run at the same time.
+transportSchema.index({ freightMemoNo: 1 }, { unique: true });
 
 export default mongoose.model("Transport", transportSchema);

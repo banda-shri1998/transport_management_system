@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import PageContainer from "../components/PageContainer";
 import api from "../services/api";
@@ -6,6 +7,7 @@ import useAuth from "../hooks/useAuth";
 import { ChevronDown, Search, UsersRound } from "lucide-react";
 
 export default function Vehicles() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role && String(user.role).toLowerCase() === "admin";
 
@@ -13,10 +15,13 @@ export default function Vehicles() {
   const [loading, setLoading] = useState(true);
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedTransporter, setSelectedTransporter] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
   const [showTransporterOptions, setShowTransporterOptions] = useState(false);
   const [form, setForm] = useState({
     vehicleNo: "",
     ownerName: "",
+    transporter: "",
+    ownershipType: "Owned",
     maximumCapacity: 0,
     fuelType: "Diesel",
     fuelRate: 0,
@@ -32,18 +37,23 @@ export default function Vehicles() {
 
   const transporterOptions = [
     ...new Set(
-      vehicles.map((vehicle) => vehicle.ownerName?.trim()).filter(Boolean),
+      vehicles
+        .map((vehicle) => (vehicle.transporter || vehicle.ownerName)?.trim())
+        .filter(Boolean),
     ),
   ].sort((first, second) => first.localeCompare(second));
   const visibleVehicles = vehicles.filter((vehicle) => {
     const matchesTransporter =
-      !selectedTransporter || vehicle.ownerName === selectedTransporter;
+      !selectedTransporter ||
+      (vehicle.transporter || vehicle.ownerName) === selectedTransporter;
+    const matchesStatus = !selectedStatus || vehicle.status === selectedStatus;
     const query = vehicleSearch.trim().toLowerCase();
     const matchesSearch =
       !query ||
       [
         vehicle.vehicleNo,
         vehicle.ownerName,
+        vehicle.transporter,
         vehicle.fuelType,
         vehicle.maximumCapacity,
       ].some((value) =>
@@ -52,7 +62,7 @@ export default function Vehicles() {
           .includes(query),
       );
 
-    return matchesTransporter && matchesSearch;
+    return matchesTransporter && matchesStatus && matchesSearch;
   });
 
   const fetchVehicles = async () => {
@@ -87,6 +97,8 @@ export default function Vehicles() {
       setForm({
         vehicleNo: "",
         ownerName: "",
+        transporter: "",
+        ownershipType: "Owned",
         maximumCapacity: 0,
         fuelType: "Diesel",
         fuelRate: 0,
@@ -113,6 +125,8 @@ export default function Vehicles() {
     setForm({
       vehicleNo: v.vehicleNo,
       ownerName: v.ownerName || "",
+      transporter: v.transporter || v.ownerName || "",
+      ownershipType: v.ownershipType || "Owned",
       maximumCapacity: v.maximumCapacity || 0,
       fuelType: v.fuelType,
       fuelRate: v.fuelRate || 0,
@@ -134,6 +148,8 @@ export default function Vehicles() {
       setForm({
         vehicleNo: "",
         ownerName: "",
+        transporter: "",
+        ownershipType: "Owned",
         maximumCapacity: 0,
         fuelType: "Diesel",
         fuelRate: 0,
@@ -180,12 +196,22 @@ export default function Vehicles() {
                 }
               />
               <input
-                placeholder="Owner Name"
-                value={form.ownerName}
+                placeholder="Transporter"
+                value={form.transporter}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, ownerName: e.target.value }))
+                  setForm((p) => ({ ...p, transporter: e.target.value }))
                 }
               />
+              <select
+                value={form.ownershipType}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, ownershipType: e.target.value }))
+                }
+              >
+                <option>Owned</option>
+                <option>Attached</option>
+                <option>Hired</option>
+              </select>
               <input
                 type="number"
                 min="0"
@@ -249,6 +275,7 @@ export default function Vehicles() {
 
               <label className="text-xs text-slate-500">
                 Fitness expiry
+                <br></br>
                 <input
                   aria-label="Fitness expiry"
                   type="date"
@@ -280,6 +307,8 @@ export default function Vehicles() {
                       setForm({
                         vehicleNo: "",
                         ownerName: "",
+                        transporter: "",
+                        ownershipType: "Owned",
                         maximumCapacity: 0,
                         fuelType: "Diesel",
                         fuelRate: 0,
@@ -345,6 +374,17 @@ export default function Vehicles() {
                 </div>
               )}
             </div>
+            <select
+              value={selectedStatus}
+              onChange={(event) => setSelectedStatus(event.target.value)}
+              className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+              aria-label="Filter vehicle status"
+            >
+              <option value="">All statuses</option>
+              <option>Active</option>
+              <option>Maintenance</option>
+              <option>Inactive</option>
+            </select>
             <label className="relative min-w-0 flex-1">
               <Search
                 size={17}
@@ -370,7 +410,7 @@ export default function Vehicles() {
                   <tr className="border-b text-xs text-slate-400">
                     <th className="px-3 py-2">Vehicle</th>
                     <th className="px-3 py-2">Type</th>
-                    <th className="px-3 py-2">Owner Name</th>
+                    <th className="px-3 py-2">Ownership / Transporter</th>
                     <th className="px-3 py-2 text-right">Maximum Capacity</th>
                     <th className="px-3 py-2">Fuel Type</th>
                     <th className="px-3 py-2">Fuel Rate</th>
@@ -389,7 +429,11 @@ export default function Vehicles() {
                     <tr key={v._id} className="border-b hover:bg-slate-500">
                       <td className="px-3 py-2 font-mono">{v.vehicleNo}</td>
                       <td className="px-3 py-2">{v.vehicleType || "—"}</td>
-                      <td className="px-3 py-2">{v.ownerName || "-"}</td>
+                      <td className="px-3 py-2">
+                        {v.ownershipType || "Owned"}
+                        <br />
+                        <span className="text-xs text-slate-500">{v.transporter || v.ownerName || "-"}</span>
+                      </td>
                       <td className="px-3 py-2 text-right">
                         {Number(v.maximumCapacity) > 0
                           ? v.maximumCapacity
@@ -448,6 +492,12 @@ export default function Vehicles() {
                         {isAdmin ? (
                           <div className="flex gap-2">
                             <button
+                              onClick={() => navigate(`/vehicles/${v._id}`)}
+                              className="text-xs text-emerald-600"
+                            >
+                              View
+                            </button>
+                            <button
                               onClick={() => startEdit(v)}
                               className="text-xs text-blue-600"
                             >
@@ -457,7 +507,7 @@ export default function Vehicles() {
                               onClick={() => remove(v._id)}
                               className="text-xs text-red-600"
                             >
-                              Delete
+                              Deactivate
                             </button>
                           </div>
                         ) : null}

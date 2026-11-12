@@ -29,6 +29,17 @@ const parseDate = (val) => {
     return isNaN(val.getTime()) ? undefined : val;
   }
 
+  // SheetJS can return Excel serial dates when a spreadsheet is read with
+  // `raw: true`.  Convert them deliberately instead of treating them as a
+  // JavaScript timestamp or storing the serial as text.
+  if (typeof val === "number" && Number.isFinite(val)) {
+    const xlsxLib = XLSX.default || XLSX;
+    const parts = xlsxLib.SSF.parse_date_code(val);
+    if (!parts) return undefined;
+    const date = new Date(parts.y, parts.m - 1, parts.d);
+    return isNaN(date.getTime()) ? undefined : date;
+  }
+
   const str = String(val).trim();
   if (
     str.toLowerCase() === "null" ||
@@ -36,6 +47,17 @@ const parseDate = (val) => {
     str === ""
   ) {
     return undefined;
+  }
+
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]) - 1;
+    const day = Number(isoMatch[3]);
+    const date = new Date(year, month, day);
+    return date.getFullYear() === year && date.getMonth() === month && date.getDate() === day
+      ? date
+      : undefined;
   }
 
   // Try matching DD-MM-YYYY or DD/MM/YYYY
@@ -56,6 +78,52 @@ const parseDate = (val) => {
 
   const parsed = new Date(str);
   return isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
+const isValidImportNumber = (value, { required = false } = {}) => {
+  if (isNullOrEmptyVal(value)) return !required;
+  if (typeof value === "boolean") return false;
+  const normalized = String(value).trim().replace(/,/g, "");
+  return /^[-+]?\d+(\.\d+)?$/.test(normalized) && Number.isFinite(Number(normalized));
+};
+
+const normalizeVehicleNo = (value) => String(value || "")
+  .toUpperCase()
+  .replace(/[^A-Z0-9]/g, "");
+
+const getImportValidationErrors = (source) => {
+  const errors = [];
+  if (!parseDate(source.date)) errors.push("Date is required and must be a valid date");
+  if (isNullOrEmptyVal(source.transportName)) errors.push("Transport Name is required");
+  if (!isValidImportNumber(source.freightMemoNo, { required: true }) || !Number.isInteger(Number(String(source.freightMemoNo).replace(/,/g, "")))) {
+    errors.push("Freight Memo No must be an integer");
+  }
+  const vehicleNo = normalizeVehicleNo(source.vehicleNo);
+  if (!vehicleNo) {
+    errors.push("Vehicle No is required");
+  } else if (!/^[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{4}$/.test(vehicleNo)) {
+    errors.push("Vehicle No must be a valid registration number (for example MH12FC7196)");
+  }
+  if (isNullOrEmptyVal(source.partyName)) errors.push("Party Name is required");
+
+  ["quantity", "rate", "totalAmount", "balance"].forEach((field) => {
+    if (!isValidImportNumber(source[field], { required: true })) {
+      errors.push(`${field} is required and must be a number`);
+    }
+  });
+  ["advancePaid", "fuelRate", "fuelQuantity", "fuelExpense", "previousClosingBalance", "payAmount"].forEach((field) => {
+    if (!isValidImportNumber(source[field])) errors.push(`${field} must be a number`);
+  });
+  if (["quantity", "rate", "totalAmount", "balance", "advancePaid", "fuelRate", "fuelQuantity", "fuelExpense", "payAmount"].some((field) => Number(source[field] || 0) < 0)) {
+    errors.push("Financial amounts and quantities cannot be negative");
+  }
+  if (!isNullOrEmptyVal(source.paymentDate) && !parseDate(source.paymentDate)) {
+    errors.push("Payment Date must be a valid date");
+  }
+  if (!isNullOrEmptyVal(source.fuelType) && !["diesel", "cng"].includes(String(source.fuelType).trim().toLowerCase())) {
+    errors.push("Fuel Type must be Diesel or CNG");
+  }
+  return errors;
 };
 
 const normalizeLrNo = (value) => {
@@ -334,7 +402,9 @@ const normalizeTransportPayload = (payload, options = {}) => {
   const transportName = cleanVal(payload.transportName);
   const freightMemoNo = normalizeFreightMemoNo(payload.freightMemoNo);
   const lrNo = normalizeLrNo(payload.lrNo);
-  const vehicleNo = cleanVal(payload.vehicleNo);
+  const vehicleNo = isNullOrEmptyVal(payload.vehicleNo)
+    ? undefined
+    : normalizeVehicleNo(payload.vehicleNo);
   const partyName = cleanVal(payload.partyName);
   const company = isNullOrEmptyVal(payload.company)
     ? ""
@@ -397,11 +467,18 @@ const normalizeTransportPayload = (payload, options = {}) => {
   return normalized;
 };
 
+const associateKnownVehicle = async (record) => {
+  const vehicleNo = String(record.vehicleNo || "").trim().toUpperCase();
+  if (!vehicleNo) return record;
+  const vehicle = await Vehicle.findOne({ vehicleNo }).select("_id").lean();
+  return { ...record, vehicleNo, vehicle: vehicle?._id || null };
+};
+
 export const createTransport = async (req, res) => {
   try {
-    const normalized = normalizeTransportPayload(req.body, {
+    const normalized = await associateKnownVehicle(normalizeTransportPayload(req.body, {
       allowPaymentFields: false,
-    });
+    }));
     const duplicateKey = getDuplicateKey(normalized);
 
     if (duplicateKey !== undefined) {
@@ -437,17 +514,12 @@ export const validateTransportImport = async (req, res) => {
       row: index + 2,
       source,
       record: normalizeTransportPayload(source, { allowPaymentFields: true }),
-      reasons: [],
+      reasons: getImportValidationErrors(source),
     }));
     const seen = new Set();
     const memoNos = [];
     for (const item of normalizedRows) {
       const value = item.record;
-      if (!value.date) item.reasons.push("Date is required or invalid");
-      if (!value.transportName) item.reasons.push("Transport Name is required");
-      if (value.freightMemoNo === undefined) item.reasons.push("Freight Memo No must be an integer");
-      if (!value.vehicleNo) item.reasons.push("Vehicle No is required");
-      if (!value.partyName) item.reasons.push("Party Name is required");
       const memo = getDuplicateKey(value);
       if (memo !== undefined) {
         if (seen.has(memo)) item.reasons.push("Duplicate Freight Memo No in this file");
@@ -477,7 +549,9 @@ export const validateTransportImport = async (req, res) => {
       if (cancelledLrMatches.length) reasons.push(`Cancelled LR No: ${cancelledLrMatches.join(", ")}`);
       return { row, record: source, valid: reasons.length === 0, reason: reasons.join("; ") };
     });
-    return res.json({ rows, validCount: rows.filter((item) => item.valid).length, invalidCount: rows.filter((item) => !item.valid).length });
+    const validCount = rows.filter((item) => item.valid).length;
+    const duplicateCount = rows.filter((item) => /duplicate|already exists/i.test(item.reason)).length;
+    return res.json({ rows, totalCount: rows.length, validCount, invalidCount: rows.length - validCount, duplicateCount });
   } catch (error) {
     return res.status(400).json({ message: error.message || "Unable to validate import rows" });
   }
@@ -490,31 +564,26 @@ export const importTransports = async (req, res) => {
         .status(400)
         .json({ message: "No records provided for import" });
     }
+    if (req.body.records.length > 10000) {
+      return res.status(413).json({ message: "Import is limited to 10,000 rows per request" });
+    }
 
     const invalidRecords = [];
     const validEntries = [];
 
     req.body.records.forEach((record, index) => {
+      const validationErrors = getImportValidationErrors(record);
       const normalized = normalizeTransportPayload(record, {
         allowPaymentFields: true,
       });
-
-      const missingFields = [];
-      if (!normalized.date) missingFields.push("Date");
-      if (!normalized.transportName) missingFields.push("Transport Name");
-      if (normalized.freightMemoNo === undefined)
-        missingFields.push("Freight Memo No");
-      if (!normalized.vehicleNo) missingFields.push("Vehicle No");
-      if (!normalized.partyName) missingFields.push("Party Name");
-
-      if (missingFields.length > 0) {
+      if (validationErrors.length > 0) {
         invalidRecords.push({
           row: index + 2,
           freightMemoNo:
             normalized.freightMemoNo !== undefined
               ? normalized.freightMemoNo
               : "N/A",
-          reason: `Missing required field(s): ${missingFields.join(", ")}`,
+          reason: validationErrors.join("; "),
         });
       } else {
         validEntries.push({ record: normalized, index });
@@ -632,10 +701,46 @@ export const importTransports = async (req, res) => {
       return [record];
     });
 
-    const created =
-      recordsToCreate.length > 0
-        ? await Transport.insertMany(recordsToCreate, { ordered: false })
-        : [];
+    // Link imported rows to configured vehicles when possible. Rows without a
+    // configured Vehicle remain valid and continue to use their vehicleNo.
+    const vehicleNumbers = [
+      ...new Set(
+        recordsToCreate
+          .map((record) => String(record.vehicleNo || "").trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    ];
+    if (vehicleNumbers.length > 0) {
+      const vehicles = await Vehicle.find({ vehicleNo: { $in: vehicleNumbers } })
+        .select("_id vehicleNo")
+        .lean();
+      const vehicleIds = new Map(vehicles.map((vehicle) => [vehicle.vehicleNo, vehicle._id]));
+      recordsToCreate.forEach((record) => {
+        record.vehicleNo = String(record.vehicleNo || "").trim().toUpperCase();
+        record.vehicle = vehicleIds.get(record.vehicleNo) || null;
+      });
+    }
+
+    // Chunked upserts keep large imports within practical MongoDB request
+    // limits.  `$setOnInsert` makes a repeated request idempotent; the unique
+    // schema index protects the same guarantee under concurrent imports.
+    const created = [];
+    const BATCH_SIZE = 500;
+    for (let start = 0; start < recordsToCreate.length; start += BATCH_SIZE) {
+      const batch = recordsToCreate.slice(start, start + BATCH_SIZE);
+      const result = await Transport.bulkWrite(
+        batch.map((record) => ({
+          updateOne: {
+            filter: { freightMemoNo: record.freightMemoNo },
+            update: { $setOnInsert: record },
+            upsert: true,
+          },
+        })),
+        { ordered: false },
+      );
+      const insertedCount = result.upsertedCount || 0;
+      created.push(...batch.slice(0, insertedCount));
+    }
 
     const skippedRecords = [
       ...invalidRecords,
@@ -654,6 +759,8 @@ export const importTransports = async (req, res) => {
       skipped: skippedRecords.length,
       cancelled: cancelledRecords.length,
       duplicates: skippedRecords,
+      valid: recordsToCreate.length,
+      invalid: invalidRecords.length,
     });
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -860,9 +967,9 @@ export const updateTransport = async (req, res) => {
   try {
     const existingRecord = await Transport.findById(req.params.id);
 
-    const normalized = normalizeTransportPayload(req.body, {
+    const normalized = await associateKnownVehicle(normalizeTransportPayload(req.body, {
       allowPaymentFields: true,
-    });
+    }));
 
     // If payment was made and balance is changing, preserve the previous balance
     if (
@@ -976,9 +1083,16 @@ export const markRecordsPaid = async (req, res) => {
   try {
     const { ids, paymentDate } = req.body;
 
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500 || ids.some((id) => !/^[a-f\d]{24}$/i.test(String(id)))) {
+      return res.status(400).json({ message: "Select between 1 and 500 valid records" });
+    }
     const records = await Transport.find({
       _id: { $in: ids },
     });
+
+    if (records.length !== new Set(ids.map(String)).size) {
+      return res.status(404).json({ message: "One or more transport records were not found" });
+    }
 
     const resolvedPaymentDate = parseDate(paymentDate) || new Date();
 

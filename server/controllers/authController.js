@@ -14,9 +14,7 @@ export const register = async (req, res) => {
       .trim()
       .toLowerCase();
     const password = String(req.body.password || "");
-    const role = ["Admin", "Staff"].includes(req.body.role)
-      ? req.body.role
-      : "Staff";
+    const role = "Staff";
 
     if (!name || !email || !password) {
       return res
